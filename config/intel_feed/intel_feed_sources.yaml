@@ -1,0 +1,134 @@
+# Intel_feed Lite v3 — Source Definitions
+# Operator-editable. Use `repose intel_feed sources add` or edit directly.
+# git backup before any write to this file. Read-back after to confirm.
+
+sources:
+  - id: arxiv_cs_ai
+    name: "arXiv cs.AI"
+    url: "https://rss.arxiv.org/rss/cs.AI"
+    class: 1
+    type: rss
+    enabled: true
+    fetch_interval_hours: 24
+    rationale: "Primary AI research feed"
+
+  - id: arxiv_cs_ma
+    name: "arXiv cs.MA"
+    url: "https://rss.arxiv.org/rss/cs.MA"
+    class: 1
+    type: rss
+    enabled: true
+    fetch_interval_hours: 24
+    rationale: "Multi-agent systems research"
+
+  - id: arxiv_cs_cr
+    name: "arXiv cs.CR"
+    url: "https://rss.arxiv.org/rss/cs.CR"
+    class: 1
+    type: rss
+    enabled: true
+    fetch_interval_hours: 24
+    rationale: "Security research — relevant to Eddie collab and Paxly"
+
+  - id: arxiv_cs_ne
+    name: "arXiv cs.NE"
+    url: "https://rss.arxiv.org/rss/cs.NE"
+    class: 1
+    type: rss
+    enabled: true
+    fetch_interval_hours: 24
+    rationale: "Neural and evolutionary computing"
+
+  - id: arxiv_q_bio_nc
+    name: "arXiv q-bio.NC"
+    url: "https://rss.arxiv.org/rss/q-bio.NC"
+    class: 1
+    type: rss
+    enabled: true
+    fetch_interval_hours: 24
+    rationale: "Computational neuroscience"
+
+  - id: the_batch
+    name: "The Batch (deeplearning.ai)"
+    url: "https://www.deeplearning.ai/the-batch/feed/"
+    class: 1
+    type: rss
+    enabled: true
+    fetch_interval_hours: 168
+    rationale: "Weekly AI practitioner newsletter"
+
+  - id: import_ai
+    name: "Import AI"
+    url: "https://importai.substack.com/feed"
+    class: 1
+    type: rss
+    enabled: true
+    fetch_interval_hours: 168
+    rationale: "Jack Clark's weekly AI research digest"
+
+  - id: krebs_security
+    name: "Krebs on Security"
+    url: "https://krebsonsecurity.com/feed/"
+    class: 1
+    type: rss
+    enabled: true
+    fetch_interval_hours: 24
+    rationale: "Security threat intelligence"
+
+  - id: awesome_agent_papers
+    name: "VoltAgent awesome-agent-papers"
+    url: "https://github.com/VoltAgent/awesome-agent-papers/releases.atom"
+    class: 2
+    type: rss
+    enabled: true
+    fetch_interval_hours: 168
+    rationale: "Curated agent research papers — editable by operator"
+
+  - id: hackernews
+    name: "Hacker News top stories"
+    url: "https://hnrss.org/frontpage?points=20"
+    class: 2
+    type: rss
+    enabled: true
+    fetch_interval_hours: 6
+    rationale: "Tech community front page — pre-filtered by points >= 20"
+
+  - id: grants_gov
+    name: "Grants.gov RSS"
+    url: "https://www.grants.gov/rss/GG_NewOpps.xml"
+    class: 3
+    type: rss
+    enabled: true
+    fetch_interval_hours: 24
+    rationale: "Grant opportunities — Intel_feed owns this source, Event_monitor does not duplicate"
+
+  - id: hello_alice
+    name: "Hello Alice Newsletter"
+    url: "https://helloalice.com/feed/"
+    class: 3
+    type: rss
+    enabled: true
+    fetch_interval_hours: 168
+    rationale: "Small business and startup opportunities"
+
+  - id: creative_capital
+    name: "Creative Capital"
+    url: "https://creative-capital.org/feed/"
+    class: 3
+    type: rss
+    enabled: true
+    fetch_interval_hours: 168
+    rationale: "Arts and innovation funding — weekly"
+
+egress_allowlist:
+  - rss.arxiv.org
+  - www.deeplearning.ai
+  - importai.substack.com
+  - krebsonsecurity.com
+  - www.grants.gov
+  - github.com
+  - news.ycombinator.com
+  - hellofnd.com
+  - creative-capital.org
+  - hnrss.org
+  - helloalice.com

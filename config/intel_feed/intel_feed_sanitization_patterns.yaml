@@ -1,0 +1,82 @@
+# Intel_feed Lite — Sanitization Patterns
+# Operator-editable. These regex patterns are applied to item titles and
+# summaries before LLM scoring.
+# Patterns that match are stripped: the matched text is removed and the
+# event is logged to system-events.
+# git backup before any write. Audit cadence: quarterly.
+
+patterns:
+  # Prompt injection / instruction override
+  - pattern: "(?i)ignore (all |previous |above |prior |the above )?(instructions|directives|commands|prompts)"
+    name: "ignore_instructions"
+    severity: "high"
+
+  - pattern: "(?i)disregard (all |previous |above )?(instructions|directives|commands|prompts)"
+    name: "disregard_instructions"
+    severity: "high"
+
+  - pattern: "(?i)(you are now|now you are|act as|pretend you are|you are an?) (a |an )?(unrestricted|unfiltered|uncensored|evil|malicious)"
+    name: "role_override"
+    severity: "high"
+
+  - pattern: "(?i)DAN mode|developer mode|jailbreak|do anything now"
+    name: "jailbreak_trigger"
+    severity: "critical"
+
+  - pattern: "(?i)system prompt|system message|system instruction"
+    name: "system_prompt_leak"
+    severity: "high"
+
+  - pattern: "(?i)you MUST|you are required to|it is imperative that you|under no circumstances"
+    name: "imperative_injection"
+    severity: "medium"
+
+  - pattern: "(?i)from now on|starting now|for the rest of this conversation"
+    name: "temporal_override"
+    severity: "medium"
+
+  # Nested delimiters (attempted prompt boundary escape)
+  - pattern: "\u003c/\u003e|\u003c/system\u003e|\u003c/instruction\u003e|\u003c/prompt\u003e"
+    name: "closing_delimiter_injection"
+    severity: "high"
+
+  # Unicode bypass attempts
+  - pattern: "[ｉｇｎｏｒｅ]{3,}|[ｄｉｓｒｅｇａｒ]{3,}"
+    name: "fullwidth_unicode_bypass"
+    severity: "medium"
+
+  # Null/escape injection
+  - pattern: "\\\\x[0-9a-fA-F]{2}|\\\\u[0-9a-fA-F]{4}|%00"
+    name: "escape_sequence_injection"
+    severity: "medium"
+
+  # Token smuggling
+  - pattern: "\\b(system|assistant|user):\\s*\n"
+    name: "role_prefix_smuggling"
+    severity: "medium"
+
+  # Repetition / spam
+  - pattern: "(.{20,}?)\\1{4,}"
+    name: "repetition_attack"
+    severity: "low"
+
+  # Base64 / encoded content
+  - pattern: "(?:[A-Za-z0-9+/]{50,}={0,2})"
+    name: "base64_suspicious"
+    severity: "low"
+
+  # XML/HTML injection
+  - pattern: "\u003cscript[^>]*\u003e.*?\u003c/script\u003e"
+    name: "script_tag_injection"
+    severity: "medium"
+
+  - pattern: "\u003c(iframe|object|embed|applet)[^>]*\u003e"
+    name: "embedded_object_injection"
+    severity: "medium"
+
+# Patterns that should block the item entirely (not just strip)
+block_patterns:
+  - "jailbreak_trigger"
+
+# Operator maintenance note:
+# When adding new patterns, test with: repose intel_feed sanitization test --text "<test string>"

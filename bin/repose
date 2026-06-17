@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""
+Repose OS CLI — entry point script.
+
+Install via pip (pip install -e .) or run directly:
+    python3 -m repose.cli
+    repose --help
+"""
+
+from repose.cli import main
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

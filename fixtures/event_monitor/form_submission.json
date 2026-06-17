@@ -1,0 +1,8 @@
+{
+  "email": "customer@example.com",
+  "name": "Jane Smith",
+  "endpoint": "contact_form",
+  "message": "I'd like to learn more about Repose OS pricing for enterprise.",
+  "submitted_at": "2026-06-01T12:00:00Z",
+  "form_id": "form_abc123"
+}

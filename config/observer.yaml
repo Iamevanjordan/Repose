@@ -1,0 +1,107 @@
+agent: observer
+version: '1.0'
+# Date (UTC) on which Observer's cold-start read-only lock is lifted. On/after
+# this date, check_and_apply_write_mode_transition() unlocks write operations
+# at startup. Before it, Observer stays strictly read-only.
+write_mode_activation_date: '2026-07-02'
+observation_sources:
+  chronogram_read_namespaces:
+  - morning_brief-briefs
+  - intel_feed-archive
+  - event_monitor-events
+  - decision-queue
+  - session-handoffs
+  - business-state
+  - system-events
+  - observer-observations
+credentials:
+  chronogram_read_secret_id: bitwarden:observer-chronogram-read-token
+  temporal_read_secret_id: bitwarden:observer-temporal-read-token
+  arize_read_secret_id: bitwarden:observer-arize-read-token
+  litellm_read_secret_id: bitwarden:observer-litellm-read-token
+execution_health:
+  enabled: true
+  cron: '*/30 * * * *'
+  observed_agents:
+    morning_brief:
+      enabled: true
+      namespace: morning_brief-briefs
+      expected_writes_per_day: 1
+      max_silence_hours: 25
+      max_error_rate_per_hour: 2
+    session_handoff:
+      enabled: true
+      namespace: session-handoffs
+      expected_writes_per_day: null
+      max_silence_hours: 168
+      max_error_rate_per_hour: 1
+    intel_feed:
+      enabled: true
+      namespace: intel_feed-archive
+      expected_writes_per_day: null
+      max_silence_hours: 12
+      max_error_rate_per_hour: 3
+    event_monitor:
+      enabled: true
+      namespace: event_monitor-events
+      expected_writes_per_day: null
+      max_silence_hours: null
+      max_error_rate_per_hour: 5
+      silence_check:
+        enabled: true
+        max_silence_hours_during_active: 48
+        active_period: weekdays_business_hours
+substrate_health:
+  enabled: true
+  cron: '*/15 * * * *'
+  components:
+    redis:
+      check: ping
+      alert_after_failures: 2
+    weaviate:
+      check: http_health_endpoint
+      endpoint: http://localhost:8080/v1/.well-known/ready
+      alert_after_failures: 2
+    neo4j:
+      check: bolt_connection
+      alert_after_failures: 2
+    temporal:
+      check: workflow_service_health
+      alert_after_failures: 2
+    litellm:
+      check: http_health_endpoint
+      endpoint: http://localhost:4000/health
+      alert_after_failures: 2
+    arize_phoenix:
+      check: http_health_endpoint
+      endpoint: http://localhost:6006/healthz
+      alert_after_failures: 2
+    cloudflare_tunnel:
+      check: http_endpoint
+      endpoint: https://webhooks.ejf.world/health
+      alert_after_failures: 2
+      note: "Event_monitor depends on this \u2014 failure here means Event_monitor is deaf"
+quality_drift:
+  enabled: true
+  cron: 0 23 * * *
+  baseline_window_days: 30
+  rolling_window_days: 7
+  deviation_threshold_stddev: 2.0
+  global_cold_start_grace_days: 14
+  per_agent_cold_start_grace:
+    intel_feed: 30
+    event_monitor: 30
+    morning_brief: 0
+    session_handoff: 14
+ack_expiry:
+  noted: 7
+  wont_fix: 30
+  resolved: null
+chronogram:
+  observations_namespace: observer-observations
+  system_events_namespace: system-events
+telegram:
+  warning_priority: informational
+  critical_priority: critical
+  info_priority: informational
+  warmup_observations_surfaced: false

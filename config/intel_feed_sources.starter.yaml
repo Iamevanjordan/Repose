@@ -1,0 +1,26 @@
+# Intel_feed Lite — Starter Source Template
+# Ships with Repose for new operators.
+# Rename to intel_feed_sources.yaml and customize before first scan.
+
+sources:
+  - id: arxiv_cs_ai
+    name: "arXiv cs.AI"
+    url: "https://rss.arxiv.org/rss/cs.AI"
+    class: 1
+    type: rss
+    enabled: true
+    fetch_interval_hours: 24
+    rationale: "Primary AI research feed — rename and expand"
+
+  - id: generic_security_feed
+    name: "Generic Security Feed"
+    url: "https://example.com/security/rss"
+    class: 1
+    type: rss
+    enabled: false
+    fetch_interval_hours: 24
+    rationale: "Replace with an operator-chosen security RSS feed"
+
+egress_allowlist:
+  - rss.arxiv.org
+  - example.com

@@ -1,0 +1,77 @@
+# Event_monitor v3 Configuration
+# All operator-editable values live here. Nothing hardcoded in src/.
+# Secrets stored in Bitwarden, referenced by secret ID.
+
+agent: event_monitor
+version: "1.0"
+
+webhook_ingress:
+  type: cloudflared
+  tunnel_name: "repose-event_monitor"
+  public_url_secret_id: "bitwarden:repose-event_monitor-public-url"
+  listen_port: 8080
+
+sources:
+  stripe:
+    enabled: true
+    endpoint: "/webhooks/stripe"
+    signing_secret_id: "bitwarden:repose-stripe-signing-secret"
+    dedup_strategy: "source_id"
+    dedup_ttl_seconds: 86400
+  github:
+    enabled: true
+    endpoint: "/webhooks/github"
+    signing_secret_id: "bitwarden:repose-github-webhook-secret"
+    monitored_repos:
+      - "your-org/*"
+    dedup_strategy: "source_id"
+    dedup_ttl_seconds: 86400
+  form:
+    enabled: false
+    endpoint: "/webhooks/form"
+    endpoints: []
+    dedup_strategy: "payload_hash"
+    payload_hash_fields: ["email", "name", "endpoint"]
+    dedup_ttl_seconds: 300
+
+classification:
+  primary_model: "haiku"
+  escalation_model: "sonnet"
+  escalation_threshold: 0.60
+  uncertain_threshold: 0.50
+  # LLM endpoint + credential for classification. The API key is resolved via
+  # Bitwarden SM (RPOSE-008) — only the secret reference is stored here. If the
+  # endpoint/key are unavailable, classification degrades to the heuristic path.
+  api_base: "http://localhost:4001/v1"
+  api_key_secret_id: "bitwarden:litellm-master-key"
+  escalation:
+    daily_cost_cap_usd: 5.00
+    on_cap_exceeded: "route_to_decision_required"
+
+routing:
+  uncertain_threshold: 0.50
+  on_uncertain:
+    action: "route_to_decision_required"
+    notify_telegram: false
+    log_to_chronogram: true
+  on_repeated_uncertain:
+    threshold_count: 3
+    window_hours: 24
+    action: "alert_via_observer"
+
+dedup:
+  redis_db: 3
+
+chronogram:
+  events_namespace: "event_monitor-events"
+  decision_namespace: "decision-queue"
+  system_events_namespace: "system-events"
+
+telegram:
+  urgent_priority: "critical"
+  decision_required_priority: "informational"
+  informational_priority: null
+  routine_priority: null
+  rate_limit:
+    per_minute: 3
+    per_hour: 60

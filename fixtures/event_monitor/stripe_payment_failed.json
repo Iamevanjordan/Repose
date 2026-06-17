@@ -1,0 +1,64 @@
+{
+  "id": "evt_3QvRgAAbC123D456",
+  "object": "event",
+  "api_version": "2020-08-27",
+  "created": 1717200000,
+  "data": {
+    "object": {
+      "id": "pi_3QvRgAAbC123D456",
+      "object": "payment_intent",
+      "amount": 2900,
+      "amount_capturable": 0,
+      "amount_received": 0,
+      "application": null,
+      "application_fee_amount": null,
+      "automatic_payment_methods": null,
+      "canceled_at": null,
+      "cancellation_reason": null,
+      "capture_method": "automatic",
+      "client_secret": "pi_3QvRgAAbC123D456_secret_abc123",
+      "confirmation_method": "automatic",
+      "created": 1717200000,
+      "currency": "usd",
+      "customer": "cus_QwErTy123456",
+      "description": "Repose OS subscription renewal",
+      "invoice": "in_1AbCdEfGhIjKlMn",
+      "last_payment_error": {
+        "charge": "ch_3QvRgAAbC123D456",
+        "code": "card_declined",
+        "decline_code": "generic_decline",
+        "doc_url": "https://stripe.com/docs/error-codes/card-declined",
+        "message": "Your card was declined.",
+        "payment_method": {
+          "id": "pm_1AbCdEfGhIjKlMn",
+          "object": "payment_method",
+          "card": {
+            "brand": "visa",
+            "last4": "4242",
+            "exp_month": 12,
+            "exp_year": 2028
+          }
+        },
+        "type": "card_error"
+      },
+      "livemode": true,
+      "next_action": null,
+      "on_behalf_of": null,
+      "payment_method": "pm_1AbCdEfGhIjKlMn",
+      "payment_method_options": {},
+      "payment_method_types": [
+        "card"
+      ],
+      "status": "requires_payment_method",
+      "transfer_data": null,
+      "transfer_group": null
+    }
+  },
+  "livemode": true,
+  "pending_webhooks": 0,
+  "request": {
+    "id": "req_abc123",
+    "idempotency_key": "ik_abc123"
+  },
+  "type": "payment_intent.payment_failed"
+}

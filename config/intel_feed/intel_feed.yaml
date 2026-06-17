@@ -1,0 +1,58 @@
+# Intel_feed Lite v3 — Agent Configuration
+# All operator-editable values. Nothing hardcoded in /src/.
+agent: intel_feed
+version: "1.0"
+
+schedule:
+  scans_per_day: 3
+  scan_times_utc: ["06:00", "13:00", "20:00"]
+  timezone: "America/New_York"
+
+cold_start:
+  enabled: true
+  warmup_days: 14
+  warmup_surface_threshold: 0.80
+  warmup_max_surfaces_per_scan: 3
+
+active_tracks:
+  query: "active projects, blockers, current focus"
+  max_records: 10
+  cache_per_scan: true
+
+gates:
+  keyword_relevance:
+    enabled: true
+    min_keyword_matches: 1
+    keywords_file: "intel_feed_keywords.yaml"
+  llm_relevance:
+    enabled: true
+    threshold: 0.65
+    primary_model: "claude-haiku-4-5"
+    escalation_model: "claude-sonnet-4-6"
+    escalation_threshold: 0.6
+    # LiteLLM gateway (operator config) + Bitwarden-resolved key (RPOSE-008).
+    # Scoring posts here over HTTP; the litellm SDK is not used. An
+    # unreachable gateway/key degrades to the deterministic heuristic.
+    api_base: "http://litellm-gateway.internal:4001/v1"
+    api_key_secret_id: "bitwarden:litellm-master-key"
+  novelty:
+    enabled: true
+    threshold: 0.30
+    embedding_model: "tfidf-local"  # active novelty path is local TF-IDF; gateway serves no embedding model
+    lookback_days: 30
+
+sanitization:
+  enabled: true
+  strip_patterns_file: "intel_feed_sanitization_patterns.yaml"
+  on_pattern_match: "strip_and_log"
+  on_sanitization_failure: "skip_item"
+
+cost:
+  max_daily_usd: 2.00
+
+chronogram:
+  archive_namespace: "intel_feed-archive"
+  system_events_namespace: "system-events"
+
+telegram:
+  priority_class: "informational"

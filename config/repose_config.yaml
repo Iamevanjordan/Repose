@@ -1,0 +1,90 @@
+# Repose OS — Shared Configuration
+# All operator-editable values live here. Nothing hardcoded in /src/.
+#
+# Secrets are stored in Bitwarden and referenced by secret ID.
+# The format is "bitwarden:<secret-name>".
+# On first deploy, run: repose telegram setup  (creates secrets and writes IDs here)
+#
+# git backup before any write to this file. Read-back after to confirm.
+
+version: "1.0"
+
+# ── Telegram routing (shared across all agents) ───────────────────────────
+telegram:
+  bot_token_secret_id: "bitwarden:repose-telegram-bot-token"
+  channels:
+    critical: "bitwarden:repose-telegram-critical-channel-id"
+    informational: "bitwarden:repose-telegram-informational-channel-id"
+
+# ── Infrastructure (references, not secrets) ──────────────────────────────
+infrastructure:
+  redis:
+    host: "localhost"
+    port: 6379
+  weaviate:
+    url: "http://localhost:8080"
+  neo4j:
+    uri: "bolt://localhost:7687"
+  temporal:
+    host: "localhost"
+    port: 7233
+  litellm:
+    url: "http://localhost:4001"
+  arize_phoenix:
+    url: "http://localhost:6006"
+
+# ── Agent configurations ──────────────────────────────────────────────────
+agents:
+  morning_brief:
+    enabled: true
+    namespace: "morning_brief-briefs"
+  session_handoff:
+    enabled: true
+    namespace: "session-handoffs"
+  intel_feed:
+    enabled: true
+    namespace: "intel_feed-archive"
+    # Flip to true after Intel_feed POL passes
+  event_monitor:
+    enabled: true
+    namespace: "event_monitor-events"
+    # Flip to true after Event_monitor POL passes
+  observer:
+    enabled: true
+    namespace: "observer-observations"
+    # Flip to true after Observer POL passes
+
+# ── Chronogram connection ─────────────────────────────────────────────────
+# Cross-agent memory now goes through the Chronogram memory-api over HTTP.
+# Only the Bitwarden secret *reference* for the API key is stored here; the key
+# value itself lives in Bitwarden SM (RPOSE-008 — no env vars, no literals).
+chronogram:
+  redis_db: 0
+  system_events_namespace: "system-events"
+  http:
+    # Reachable from inside the repose-runtime container via the shared
+    # chronogram_default docker network (not localhost — different netns).
+    base_url: "http://chronogram-memory-api-service-1:4000"
+    api_key_secret_id: "bitwarden:agent-os-chronogram-key"
+    default_scope: "workspace"
+    timeout_seconds: 10
+
+# ── Bitwarden Secrets Manager ─────────────────────────────────────────────
+# Project (by name) that scopes Repose secrets to the machine account. store_secret
+# resolves this name to a project UUID via the SDK and places new secrets there so
+# they remain reachable. Empty project scope = unreachable secret. Not a secret.
+bitwarden:
+  project_name: "infra"
+
+# ── Rate limiting config (shared Redis backend) ──────────────────────────
+rate_limit:
+  redis_db: 4  # Separate from Chronogram Redis usage
+
+# ── Development overrides (sandbox/CI only — never populated on VPS) ──────
+dev:
+  secrets:
+    # Populate these for local development/testing only.
+    # On the VPS, these are always resolved via Bitwarden SDK.
+    # repose-telegram-bot-token: ""
+    # repose-telegram-critical-channel-id: ""
+    # repose-telegram-informational-channel-id: ""

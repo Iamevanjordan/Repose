@@ -1,0 +1,146 @@
+================================================================
+REPOSE V1 — INTEL_FEED / EVENT_MONITOR / OBSERVER WIRING REPORT
+Date: 2026-06-05 ~03:41 UTC
+Operator: ejf (host) / workspace uid 10010 (container)
+================================================================
+
+SUMMARY
+-------
+All three previously-dormant Repose agents (Intel_feed, Event_monitor, Observer) are
+now wired into the running system as host systemd services and are
+active. All five Repose workflows are live. The two pre-existing
+workflows (Morning_brief, Session_handoff) were not touched.
+
+ARCHITECTURE DECISION
+---------------------
+The repose package (Intel_feed/Event_monitor/Observer) lives INSIDE the repose-runtime
+container (/opt/repose/repose, bind-mounted from
+/opt/repose, uid 10010), where its
+dependencies, Bitwarden SDK config, and Redis network reachability exist.
+The host has no repose venv. Therefore each new host systemd unit follows
+the existing ejf-*.service pattern (Type=simple, User=ejf, Restart=always,
+RestartSec=10, journal) but its ExecStart runs `docker exec -u 10010` into
+the container, executing the hermes venv python with PYTHONPATH=/opt/repose.
+ejf is in the docker group, so no privilege change was needed.
+No secrets are passed via environment — all secrets resolve via the
+Bitwarden SDK inside the container (constraint honored).
+
+AGENTS WIRED  (service name -> what it does)
+--------------------------------------------
+1. Intel_feed   -> ejf-intel_feed-scheduler.service
+   Long-lived scheduler daemon (new file: agents/intel_feed_scheduler.py).
+   Triggers `run_scan()` at the cadence in config/intel_feed.yaml
+   (scan_times_utc = 06:00, 13:00, 20:00). Confirmed running; first scan
+   scheduled for 06:00 UTC. repose_config.yaml intel_feed.enabled = true.
+
+2. Event_monitor   -> ejf-event_monitor-server.service
+   Webhook HTTP server. Added the missing __main__/main() entry point to
+   agents/event_monitor.py (calls existing start_server() and blocks on a signal
+   event; no pipeline logic changed). Listens on :8080; GET /health
+   returned HTTP 200 {"status":"healthy"} live. repose_config.yaml
+   event_monitor.enabled = true.
+
+3. Observer  -> ejf-observer-observer.service
+   Read-only observer daemon (new file: agents/observer_observer.py).
+   Runs observer_core's check_* functions on a 15-min loop. See cold-start
+   section below. repose_config.yaml observer.enabled = true.
+
+REPOSE PACKAGE INSTALL (find_spec('repose') == None)
+----------------------------------------------------
+Root cause IDENTIFIED: the editable install's import-hook finder had an
+empty MAPPING ({}), because pyproject.toml used
+  [tool.setuptools.packages.find] include = ["repose*"]
+against a FLAT layout where the project root dir itself is the `repose`
+package (children are agents/, cli/, utils/ — none match "repose*"), so
+zero packages were discovered.
+
+Attempted the proper fix (pyproject explicit package list + package-dir,
+then `pip install -e --no-deps --no-build-isolation`). It FAILED with
+`invalid command 'bdist_wheel'` — the `wheel` package is absent from the
+hermes-agent venv, which is SHARED infrastructure. Per the task constraint
+("if the install fails or causes any error in the existing package state,
+revert and document — do not force it"), pyproject.toml was REVERTED to its
+pre-wire snapshot and the shared venv was left untouched. The failed pip
+attempt ran in a temp build dir and did NOT alter the existing install
+(pip show repose still reports v1.0.0 editable; artifacts unchanged).
+
+OUTCOME: install fix SKIPPED (documented). Runtime is fully solved without
+it via per-process PYTHONPATH=/opt/repose (scoped to the three new
+systemd units only — zero blast radius on the shared venv / hermes-agent).
+`repose` imports and the CLI run correctly under that PYTHONPATH.
+
+AGENTS THAT FAILED
+------------------
+None. All three wired and active on first start; NRestarts = 0 for each
+(no crash-loops).
+
+CURRENT STATUS — ALL FIVE WORKFLOWS
+-----------------------------------
+ejf-orchestrator        active  (since 2026-06-03 06:39:27 UTC, MainPID 3272968)
+ejf-temporal-worker     active  (since 2026-06-03 06:39:27 UTC, MainPID 3272971)
+ejf-session_handoff-listener      active  (since 2026-06-03 06:39:27 UTC, MainPID 3272973)
+ejf-intel_feed-scheduler     active  (since 2026-06-05 03:38:48 UTC, new)
+ejf-event_monitor-server        active  (since 2026-06-05 03:39:50 UTC, new)
+ejf-observer-observer     active  (since 2026-06-05 03:40:17 UTC, new)
+
+MORNING_BRIEF / SESSION_HANDOFF NOT TOUCHED  (verification)
+------------------------------------------
+The three pre-existing services show identical ActiveEnterTimestamp
+(2026-06-03 06:39:27 UTC) and identical MainPIDs (3272968 / 3272971 /
+3272973) as observed at the start of this task — proving they were never
+stopped or restarted. Their unit files retain their original May mtimes
+(unmodified). No Morning_brief or Session_handoff code was modified.
+
+OBSERVER COLD-START STATUS  (read-only confirmed)
+-----------------------------------------------
+- Mode: READ-ONLY cold-start observer. Daemon log line on start:
+  "Observer observer starting - READ-ONLY cold-start mode, interval=900s,
+   surfacing=DISABLED".
+- The daemon ONLY calls the existing read-only check_* functions; it NEVER
+  calls surface_observation(), so nothing is sent to Telegram during
+  cold-start. quality_drift observations are written in warmup confidence
+  and were NOT surfaced (surfaced_to_telegram = 0).
+- ZERO durable writes: observer_core.write_observation and
+  utils/chronogram.log_system_event are in-memory only in this build (no
+  Redis/file persistence is implemented), so no namespace or state file
+  was written; no baseline file was created, reset, or initialized
+  (baselines are computed live, in-memory).
+- _assert_read_only NEVER tripped: only "read" operations were performed;
+  journal shows no AssertionError / "ASSERTION TRIPPED" / Traceback.
+- First observer cycle:
+  {execution_health: 4 (info no_records_yet), substrate_health: 0,
+   quality_drift: 3 (warmup), ack_expiry: 0}.
+
+ARTIFACTS
+---------
+Backup (rollback): /opt/repose/repose.prewire.tar.gz (pre-write snapshot)
+New code (uid 10010, in live tree):
+  - agents/intel_feed_scheduler.py          (Intel_feed scheduler daemon)
+  - agents/event_monitor.py                    (appended main()/__main__ entry point)
+  - agents/observer_observer.py          (Observer read-only observer daemon)
+  - bin/stop_agent.sh                  (clean-stop helper: docker exec does not
+                                        forward SIGTERM and pgrep/pkill are
+                                        absent in the container)
+New host units: /etc/systemd/system/ejf-{intel_feed-scheduler,event_monitor-server,observer-observer}.service
+Config: config/repose_config.yaml — intel_feed/event_monitor/observer enabled: true
+  (per-file backup: /opt/repose/repose_config.yaml.prewire)
+Revert snapshots: /opt/repose/{pyproject.toml,__editable__.repose.pth,
+  __editable___repose_finder.py}.prewire
+
+TELEGRAM
+--------
+Confirmation ping delivered to repose-informational (route_message
+agent=event_monitor, priority=informational -> sent: True), listing all five
+service names and statuses.
+
+NOTES / FOLLOW-UPS (non-blocking)
+---------------------------------
+- repose package editable install remains "broken" for bare `import repose`
+  without PYTHONPATH. To make it global later: `pip install wheel` into the
+  hermes venv, fix pyproject package discovery (flat-layout package-dir),
+  then `pip install -e --no-deps`. Deferred to avoid touching shared infra.
+- Observer substrate_health pings 127.0.0.1:6379/7687 (container localhost),
+  which are not where Redis/Neo4j live on the container network; this only
+  produces in-memory (unsurfaced) transient notes during cold-start and is a
+  pre-existing code detail, not introduced here.
+================================================================

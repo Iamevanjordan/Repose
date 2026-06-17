@@ -1,0 +1,68 @@
+{
+  "ref": "refs/heads/main",
+  "before": "6113728f27ae82c7b1a177c8d03f9e96e0adf246",
+  "after": "6113728f27ae82c7b1a177c8d03f9e96e0adf247",
+  "repository": {
+    "id": 8675309,
+    "node_id": "R_kgDO1234567",
+    "name": "repose-os",
+    "full_name": "your-org/repose-os",
+    "private": true,
+    "html_url": "https://github.com/your-org/repose-os",
+    "description": "Repose OS \u2014 Hermes Agent Operations Framework",
+    "default_branch": "main"
+  },
+  "pusher": {
+    "name": "ej",
+    "email": "ej@ejf.world"
+  },
+  "sender": {
+    "login": "your-org",
+    "id": 12345,
+    "avatar_url": "https://avatars.githubusercontent.com/u/12345"
+  },
+  "created": true,
+  "deleted": false,
+  "forced": false,
+  "base_ref": null,
+  "compare": "https://github.com/your-org/repose-os/compare/6113728f27ae...6113728f27ae",
+  "commits": [
+    {
+      "id": "6113728f27ae82c7b1a177c8d03f9e96e0adf247",
+      "tree_id": "abc123",
+      "distinct": true,
+      "message": "Add Event_monitor webhook signature verification",
+      "timestamp": "2026-06-01T12:00:00Z",
+      "url": "https://github.com/your-org/repose-os/commit/6113728f27ae",
+      "author": {
+        "name": "EJ",
+        "email": "ej@ejf.world"
+      },
+      "committer": {
+        "name": "EJ",
+        "email": "ej@ejf.world"
+      },
+      "added": [
+        "repose/agents/event_monitor.py"
+      ],
+      "removed": [],
+      "modified": [
+        "repose/config/event_monitor.yaml"
+      ]
+    }
+  ],
+  "head_commit": {
+    "id": "6113728f27ae82c7b1a177c8d03f9e96e0adf247",
+    "message": "Add Event_monitor webhook signature verification",
+    "timestamp": "2026-06-01T12:00:00Z",
+    "url": "https://github.com/your-org/repose-os/commit/6113728f27ae",
+    "author": {
+      "name": "EJ",
+      "email": "ej@ejf.world"
+    },
+    "committer": {
+      "name": "EJ",
+      "email": "ej@ejf.world"
+    }
+  }
+}

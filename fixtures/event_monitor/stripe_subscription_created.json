@@ -1,0 +1,69 @@
+{
+  "id": "evt_4WxYzCCdE789F012",
+  "object": "event",
+  "api_version": "2020-08-27",
+  "created": 1717200000,
+  "data": {
+    "object": {
+      "id": "sub_1XyZaBcDeFgHiJk",
+      "object": "subscription",
+      "application": null,
+      "cancel_at": null,
+      "cancel_at_period_end": false,
+      "canceled_at": null,
+      "cancellation_details": {},
+      "collection_method": "charge_automatically",
+      "created": 1717200000,
+      "currency": "usd",
+      "current_period_end": 1719792000,
+      "current_period_start": 1717200000,
+      "customer": "cus_QwErTy123456",
+      "days_until_due": null,
+      "default_payment_method": "pm_1AbCdEfGhIjKlMn",
+      "description": "Repose OS monthly subscription",
+      "items": {
+        "object": "list",
+        "data": [
+          {
+            "id": "si_XyZaBcDeFgHiJk",
+            "object": "subscription_item",
+            "price": {
+              "id": "price_1AbCdEfGhIjKlMn",
+              "object": "price",
+              "currency": "usd",
+              "unit_amount": 2900,
+              "recurring": {
+                "interval": "month",
+                "interval_count": 1
+              }
+            },
+            "quantity": 1
+          }
+        ]
+      },
+      "latest_invoice": "in_2AbCdEfGhIjKlMn",
+      "livemode": true,
+      "metadata": {},
+      "next_pending_invoice_item_invoice": null,
+      "on_behalf_of": null,
+      "plan": {
+        "id": "price_1AbCdEfGhIjKlMn",
+        "currency": "usd",
+        "amount": 2900,
+        "interval": "month"
+      },
+      "status": "active",
+      "transfer_data": null,
+      "trial_end": null,
+      "trial_settings": {},
+      "trial_start": null
+    }
+  },
+  "livemode": true,
+  "pending_webhooks": 0,
+  "request": {
+    "id": "req_def456",
+    "idempotency_key": "ik_def456"
+  },
+  "type": "customer.subscription.created"
+}
