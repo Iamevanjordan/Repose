@@ -517,6 +517,7 @@ def process_event(
     payload: bytes | dict = None,
     headers: dict = None,
     bypass_signature: bool = False,
+    raw_body: bytes | None = None,
 ) -> dict:
     """Full event processing pipeline. Returns the event_monitor_event record.
 
@@ -526,11 +527,29 @@ def process_event(
         payload: Raw payload bytes or parsed dict.
         headers: HTTP headers dict.
         bypass_signature: If True, skip signature verification (for testing).
+        raw_body: The EXACT bytes received on the wire, captured before any
+            json.loads. HMAC signature verification MUST run over these bytes —
+            re-serializing the parsed dict (json.dumps) produces different bytes
+            (key order, whitespace, unicode escaping) and makes legitimate
+            Stripe/GitHub signatures fail. When omitted (programmatic callers
+            that only have a dict), we reconstruct a best-effort body, but the
+            HTTP handler always passes the real wire bytes.
     """
     if payload is None:
         payload = {}
     if headers is None:
         headers = {}
+
+    # Resolve the exact bytes the signature must cover. Prefer the wire bytes;
+    # fall back to the payload itself (bytes) or a reserialized dict only for
+    # in-process callers that never had the original request body.
+    if raw_body is None:
+        if isinstance(payload, bytes):
+            raw_body = payload
+        elif payload:
+            raw_body = json.dumps(payload).encode()
+        else:
+            raw_body = b""
 
     global _stats
     _stats["events_received"] += 1
@@ -552,24 +571,17 @@ def process_event(
     if bypass_signature:
         sig_ok = True
     else:
+        # HMAC is computed over raw_body — the exact bytes from the wire — for
+        # every source. Never over a reserialized dict.
         if source == "stripe":
             sig_header = headers.get("stripe-signature", "")
-            sig_ok = verify_stripe_signature(
-                payload if isinstance(payload, bytes) else json.dumps(payload).encode(),
-                sig_header, signing_secret,
-            )
+            sig_ok = verify_stripe_signature(raw_body, sig_header, signing_secret)
         elif source == "github":
             sig_header = headers.get("x-hub-signature-256", "")
-            sig_ok = verify_github_signature(
-                payload if isinstance(payload, bytes) else json.dumps(payload).encode(),
-                sig_header, signing_secret,
-            )
+            sig_ok = verify_github_signature(raw_body, sig_header, signing_secret)
         elif source == "form":
             sig_header = headers.get("x-form-signature", "")
-            sig_ok = verify_form_signature(
-                payload if isinstance(payload, bytes) else json.dumps(payload).encode(),
-                sig_header, signing_secret,
-            )
+            sig_ok = verify_form_signature(raw_body, sig_header, signing_secret)
         else:
             sig_ok = False
 
@@ -769,8 +781,10 @@ class Event_monitorHTTPHandler(BaseHTTPRequestHandler):
             self._send_json(403, {"error": f"source_disabled: {source}"})
             return
 
+        # Capture the EXACT wire bytes before parsing. These are what the HMAC
+        # signature must cover; the parsed dict is only for routing downstream.
+        body = self._read_body()
         try:
-            body = self._read_body()
             payload = json.loads(body)
         except json.JSONDecodeError:
             self._send_json(400, {"error": "invalid_json"})
@@ -779,7 +793,7 @@ class Event_monitorHTTPHandler(BaseHTTPRequestHandler):
         headers = {k.lower(): v for k, v in self.headers.items()}
         event_type = payload.get("type", payload.get("event_type", "unknown"))
 
-        result = process_event(source, event_type, payload, headers)
+        result = process_event(source, event_type, payload, headers, raw_body=body)
 
         if result.get("status") == "rejected":
             status_code = 400 if result.get("reason") == "duplicate" else 403
