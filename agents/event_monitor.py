@@ -585,12 +585,12 @@ def process_event(
         else:
             sig_ok = False
 
-        if not sig_ok:
-            # If testing mode (no real secret configured), allow test events
-            if not signing_secret and os.environ.get("EVENT_MONITOR_TEST_SKIP_SIGNATURE") == "true":
-                sig_ok = True
-            elif not signing_secret and source in ("stripe", "github"):
-                sig_ok = os.environ.get("EVENT_MONITOR_TEST_MODE") == "true"
+        # NO environment-variable signature bypass. The previous
+        # EVENT_MONITOR_TEST_SKIP_SIGNATURE / EVENT_MONITOR_TEST_MODE env flags
+        # could silently disable signature verification in production if the
+        # variable leaked into the environment. Tests that need to exercise the
+        # post-signature pipeline pass the in-code `bypass_signature=True`
+        # argument explicitly — a deliberate call-site flag, never ambient env.
 
     if not sig_ok:
         _stats["events_signature_failed"] += 1
@@ -906,9 +906,10 @@ def verify_signature(source: str, payload: bytes, headers: dict) -> bool:
     signing_secret = _resolve_secret(signing_secret_id)
 
     if not signing_secret:
-        # In test mode, accept any signature
-        if os.environ.get("EVENT_MONITOR_TEST_MODE") == "true":
-            return True
+        # No configured secret means the signature cannot be verified — fail
+        # closed. There is deliberately NO env-based "accept any signature"
+        # path: a leaked EVENT_MONITOR_TEST_MODE could otherwise silently
+        # disable webhook verification in production.
         return False
 
     if source == "stripe":

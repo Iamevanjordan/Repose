@@ -38,7 +38,12 @@ logger = logging.getLogger(__name__)
 # ── Fixture base path ────────────────────────────────────────────────────
 FIXTURES_BASE = Path(__file__).resolve().parent.parent / "fixtures" / "event_monitor"
 
-# ── Set test mode env so signature verification doesn't block in container ─
+# ── Default the CLI to test mode for offline classification ────────────────
+# EVENT_MONITOR_TEST_MODE only routes the classifier to its local heuristic
+# (no LLM API call) and enables sources in config for `test` runs. It does NOT
+# affect signature verification — webhook HMAC checks always run and always
+# fail closed when no secret is configured (see verify_signature). This is a
+# non-credential convenience toggle, never a security bypass.
 os.environ.setdefault("EVENT_MONITOR_TEST_MODE", "true")
 
 
@@ -229,8 +234,16 @@ class Event_monitorCLI(CLIBase):
 
         print(_format_green("  Secret accepted.", use_color))
 
-        # Store via env for container testing
-        os.environ["BW_SECRET_REPOSE_STRIPE_SIGNING_SECRET"] = secret
+        # Persist the signing secret to Bitwarden Secrets Manager — the only
+        # secrets layer (RPOSE-008). Never write secrets into os.environ: a
+        # process-environment secret leaks to every child process and is
+        # readable via /proc; Bitwarden is the single source of truth.
+        try:
+            from repose.utils.bitwarden import store_secret
+            store_secret("repose-stripe-signing-secret", secret)
+        except Exception as exc:
+            print(_format_red(f"  Bitwarden store failed: {exc}", use_color))
+            return {"status": "failed", "reason": "bitwarden_store_failed"}
 
         # Verify signature
         print("\n  Step 3: Verify signature...")
@@ -294,7 +307,14 @@ class Event_monitorCLI(CLIBase):
             print(_format_red("  Secret is required.", use_color))
             return {"status": "failed"}
 
-        os.environ["BW_SECRET_REPOSE_GITHUB_WEBHOOK_SECRET"] = secret
+        # Persist to Bitwarden Secrets Manager — the only secrets layer
+        # (RPOSE-008). Never stash secrets in os.environ.
+        try:
+            from repose.utils.bitwarden import store_secret
+            store_secret("repose-github-webhook-secret", secret)
+        except Exception as exc:
+            print(_format_red(f"  Bitwarden store failed: {exc}", use_color))
+            return {"status": "failed", "reason": "bitwarden_store_failed"}
         print(_format_green("  Secret stored.", use_color))
 
         # Verify

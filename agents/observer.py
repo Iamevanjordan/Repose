@@ -342,13 +342,16 @@ def _setup_chronogram_credentials() -> dict:
     try:
         # Generate a read-only token
         token = f"chronogram_read_{uuid.uuid4().hex[:16]}"
-        # Store to Bitwarden
+        # Store to Bitwarden — the only secrets layer (RPOSE-008).
         try:
             from repose.utils.bitwarden import store_secret
             store_secret(secret_id, token)
-        except Exception:
-            # Bitwarden unavailable — store via env fallback
-            os.environ[f"BW_SECRET_{secret_id.replace('-', '_').upper()}"] = token
+        except Exception as exc:
+            # HARD FAIL: never fall back to an os.environ-stored credential. A
+            # self-generated token sitting in the process environment is worse
+            # than no observer at all — abort credential setup instead.
+            logger.error("Chronogram read-token store to Bitwarden failed: %s", exc)
+            raise
 
         # Verify: write attempt must fail (in this build, write is controlled by code assertion)
         try:
@@ -392,8 +395,11 @@ def _setup_generic_credentials(service: str, secret_id: str) -> dict:
         try:
             from repose.utils.bitwarden import store_secret
             store_secret(secret_id, token)
-        except Exception:
-            os.environ[f"BW_SECRET_{secret_id.replace('-', '_').upper()}"] = token
+        except Exception as exc:
+            # HARD FAIL: no os.environ fallback for a generated credential
+            # (RPOSE-008). Abort rather than run on a self-issued env token.
+            logger.error("%s read-token store to Bitwarden failed: %s", service, exc)
+            raise
 
         # Write attempt rejection
         try:

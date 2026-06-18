@@ -27,25 +27,25 @@ from repose.utils.cli_base import (
 
 
 def _resolve_secret_for_setup(secret_id: str, config_path: str) -> Optional[str]:
-    """Resolve a secret during telegram setup. Tries Bitwarden SDK first, then env.
+    """Resolve a secret during setup via Bitwarden Secrets Manager ONLY.
 
-    This is used during setup ONLY — normal secret resolution goes through
-    telegram_router.py's _resolve_secret.
+    Bitwarden SM is the only secrets layer (RPOSE-008). There is NO
+    environment-variable fallback: reading credentials from the process
+    environment was removed because it silently degraded the security posture
+    (an attacker-set or stale env var would be trusted as a real secret).
+
+    Returns the secret string, or None if Bitwarden is unavailable or the
+    secret is missing. The caller MUST surface a clear error on None rather
+    than proceeding with an insecure default.
     """
-    # Try Bitwarden SDK
     try:
         from repose.utils.bitwarden import get_secret
         val = get_secret(secret_id)
         if val:
             return val
-    except (ImportError, Exception):
-        pass
-
-    # Try env
-    env_key = f"REPOSE_{secret_id.replace('-', '_').upper()}"
-    val = os.environ.get(env_key)
-    if val:
-        return val
+    except Exception:
+        # Bitwarden unreachable or SDK missing — fail closed, no env fallback.
+        return None
 
     return None
 
