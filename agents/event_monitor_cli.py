@@ -91,7 +91,8 @@ class Event_monitorCLI(CLIBase):
         print(_format_green("\n  Event_monitor Ingress Setup\n", use_color))
         print(f"  Provider: cloudflared (LOCKED)")
         print(f"  Tunnel name: {tunnel_name}")
-        print(f"  Public URL: https://webhooks.ejf.world")
+        # Replace with your cloudflared webhook domain.
+        print(f"  Public URL: https://your-webhook-domain.example.com")
         print()
 
         import subprocess
@@ -108,7 +109,7 @@ class Event_monitorCLI(CLIBase):
         return {
             "provider": "cloudflared",
             "tunnel_name": tunnel_name,
-            "public_url": "https://webhooks.ejf.world",
+            "public_url": "https://your-webhook-domain.example.com",
             "listen_port": cfg.get("webhook_ingress", {}).get("listen_port", 8080),
             "status": status,
         }
@@ -120,9 +121,9 @@ class Event_monitorCLI(CLIBase):
         return {
             "type": ingress.get("type", "cloudflared"),
             "tunnel_name": ingress.get("tunnel_name", ""),
-            "public_url": "https://webhooks.ejf.world",
+            "public_url": "https://your-webhook-domain.example.com",
             "listen_port": ingress.get("listen_port", 8080),
-            "health_endpoint": "https://webhooks.ejf.world/health",
+            "health_endpoint": "https://your-webhook-domain.example.com/health",
             "reachable": "simulated",
         }
 
@@ -217,7 +218,7 @@ class Event_monitorCLI(CLIBase):
         print(_format_green("\n  Event_monitor Stripe Setup\n", use_color))
         print("  Step 1: Create webhook endpoint in Stripe Dashboard")
         print("    Path: Developers > Webhooks > Add endpoint")
-        print("    Endpoint URL: https://webhooks.ejf.world/webhooks/stripe")
+        print("    Endpoint URL: https://your-webhook-domain.example.com/webhooks/stripe")
         print()
 
         import getpass
@@ -291,7 +292,7 @@ class Event_monitorCLI(CLIBase):
         print(_format_green("\n  Event_monitor GitHub Setup\n", use_color))
         print("  Step 1: Add webhook in GitHub repository settings")
         print("    Path: Settings > Webhooks > Add webhook")
-        print("    Payload URL: https://webhooks.ejf.world/webhooks/github")
+        print("    Payload URL: https://your-webhook-domain.example.com/webhooks/github")
         print("    Secret: (generate one, enter below)")
         print()
 

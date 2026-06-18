@@ -3,7 +3,7 @@ Session_handoff Telegram Bot Listener.
 Persistent process that polls Telegram for inbound messages from the operator.
 Triggers Session_handoffTelegramHandoffWorkflow on valid SESSION_HANDOFF_HANDOFF messages.
 
-Start via systemd: ejf-session_handoff-listener.service
+Start via systemd: repose-session_handoff-listener.service
 """
 import asyncio
 import json

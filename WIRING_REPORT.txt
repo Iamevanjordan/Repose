@@ -1,7 +1,7 @@
 ================================================================
 REPOSE V1 — INTEL_FEED / EVENT_MONITOR / OBSERVER WIRING REPORT
 Date: 2026-06-05 ~03:41 UTC
-Operator: ejf (host) / workspace uid 10010 (container)
+Operator: [operator] (host) / workspace uid 10010 (container)
 ================================================================
 
 SUMMARY
@@ -18,29 +18,29 @@ container (/opt/repose/repose, bind-mounted from
 /opt/repose, uid 10010), where its
 dependencies, Bitwarden SDK config, and Redis network reachability exist.
 The host has no repose venv. Therefore each new host systemd unit follows
-the existing ejf-*.service pattern (Type=simple, User=ejf, Restart=always,
+the existing [operator]-*.service pattern (Type=simple, User=[operator], Restart=always,
 RestartSec=10, journal) but its ExecStart runs `docker exec -u 10010` into
 the container, executing the hermes venv python with PYTHONPATH=/opt/repose.
-ejf is in the docker group, so no privilege change was needed.
+[operator] is in the docker group, so no privilege change was needed.
 No secrets are passed via environment — all secrets resolve via the
 Bitwarden SDK inside the container (constraint honored).
 
 AGENTS WIRED  (service name -> what it does)
 --------------------------------------------
-1. Intel_feed   -> ejf-intel_feed-scheduler.service
+1. Intel_feed   -> [operator]-intel_feed-scheduler.service
    Long-lived scheduler daemon (new file: agents/intel_feed_scheduler.py).
    Triggers `run_scan()` at the cadence in config/intel_feed.yaml
    (scan_times_utc = 06:00, 13:00, 20:00). Confirmed running; first scan
    scheduled for 06:00 UTC. repose_config.yaml intel_feed.enabled = true.
 
-2. Event_monitor   -> ejf-event_monitor-server.service
+2. Event_monitor   -> [operator]-event_monitor-server.service
    Webhook HTTP server. Added the missing __main__/main() entry point to
    agents/event_monitor.py (calls existing start_server() and blocks on a signal
    event; no pipeline logic changed). Listens on :8080; GET /health
    returned HTTP 200 {"status":"healthy"} live. repose_config.yaml
    event_monitor.enabled = true.
 
-3. Observer  -> ejf-observer-observer.service
+3. Observer  -> [operator]-observer-observer.service
    Read-only observer daemon (new file: agents/observer_observer.py).
    Runs observer_core's check_* functions on a 15-min loop. See cold-start
    section below. repose_config.yaml observer.enabled = true.
@@ -76,12 +76,12 @@ None. All three wired and active on first start; NRestarts = 0 for each
 
 CURRENT STATUS — ALL FIVE WORKFLOWS
 -----------------------------------
-ejf-orchestrator        active  (since 2026-06-03 06:39:27 UTC, MainPID 3272968)
-ejf-temporal-worker     active  (since 2026-06-03 06:39:27 UTC, MainPID 3272971)
-ejf-session_handoff-listener      active  (since 2026-06-03 06:39:27 UTC, MainPID 3272973)
-ejf-intel_feed-scheduler     active  (since 2026-06-05 03:38:48 UTC, new)
-ejf-event_monitor-server        active  (since 2026-06-05 03:39:50 UTC, new)
-ejf-observer-observer     active  (since 2026-06-05 03:40:17 UTC, new)
+[operator]-orchestrator        active  (since 2026-06-03 06:39:27 UTC, MainPID 3272968)
+[operator]-temporal-worker     active  (since 2026-06-03 06:39:27 UTC, MainPID 3272971)
+[operator]-session_handoff-listener      active  (since 2026-06-03 06:39:27 UTC, MainPID 3272973)
+[operator]-intel_feed-scheduler     active  (since 2026-06-05 03:38:48 UTC, new)
+[operator]-event_monitor-server        active  (since 2026-06-05 03:39:50 UTC, new)
+[operator]-observer-observer     active  (since 2026-06-05 03:40:17 UTC, new)
 
 MORNING_BRIEF / SESSION_HANDOFF NOT TOUCHED  (verification)
 ------------------------------------------
@@ -121,7 +121,7 @@ New code (uid 10010, in live tree):
   - bin/stop_agent.sh                  (clean-stop helper: docker exec does not
                                         forward SIGTERM and pgrep/pkill are
                                         absent in the container)
-New host units: /etc/systemd/system/ejf-{intel_feed-scheduler,event_monitor-server,observer-observer}.service
+New host units: /etc/systemd/system/[operator]-{intel_feed-scheduler,event_monitor-server,observer-observer}.service
 Config: config/repose_config.yaml — intel_feed/event_monitor/observer enabled: true
   (per-file backup: /opt/repose/repose_config.yaml.prewire)
 Revert snapshots: /opt/repose/{pyproject.toml,__editable__.repose.pth,

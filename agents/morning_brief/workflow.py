@@ -10,7 +10,7 @@ from temporalio import activity, workflow
 from temporalio.common import RetryPolicy
 
 logger = logging.getLogger(__name__)
-CONFIG_PATH = "/opt/agent-os/config/morning_brief.yaml"
+CONFIG_PATH = "[agent-os install path]/config/morning_brief.yaml"  # documentation-only; constant is unused
 
 
 def _litellm_url() -> str:

@@ -16,7 +16,7 @@
       "canceled_at": null,
       "cancellation_reason": null,
       "capture_method": "automatic",
-      "client_secret": "pi_3QvRgAAbC123D456_secret_abc123",
+      "client_secret": "cs_test_REPLACE_WITH_YOUR_SECRET",
       "confirmation_method": "automatic",
       "created": 1717200000,
       "currency": "usd",

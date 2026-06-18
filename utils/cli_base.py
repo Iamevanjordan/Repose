@@ -198,7 +198,7 @@ class CLIBase:
             if response in ("y", "yes"):
                 try:
                     subprocess.run(
-                        ["systemctl", "restart", f"ejf-{self.agent_name}-worker.service"],
+                        ["systemctl", "restart", f"repose-{self.agent_name}-worker.service"],
                         capture_output=True, timeout=10,
                     )
                 except Exception:

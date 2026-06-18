@@ -1,4 +1,11 @@
 # Repose OS — Shared Configuration
+#
+# ┌──────────────────────────────────────────────────────────────────────────┐
+# │ Replace all placeholder values with your actual infrastructure addresses. │
+# │ Never commit real addresses to a public repository. The values below are  │
+# │ generic localhost defaults — substitute your own service hosts/ports.     │
+# └──────────────────────────────────────────────────────────────────────────┘
+#
 # All operator-editable values live here. Nothing hardcoded in /src/.
 #
 # Secrets are stored in Bitwarden and referenced by secret ID.

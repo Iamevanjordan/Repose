@@ -144,7 +144,7 @@ class Event_monitorCLI(CLIBase):
                     "1) Install cloudflared, "
                     "2) cloudflared tunnel login, "
                     "3) cloudflared tunnel create repose-event_monitor, "
-                    "4) cloudflared tunnel route dns repose-event_monitor webhooks.ejf.world, "
+                    "4) cloudflared tunnel route dns repose-event_monitor your-webhook-domain.example.com, "
                     "5) cloudflared tunnel run repose-event_monitor"
                 ),
             }
@@ -174,7 +174,7 @@ class Event_monitorCLI(CLIBase):
             print()
             print("Prerequisites:")
             print("  1. Stripe account with admin access")
-            print("  2. Event_monitor webhook endpoint: https://webhooks.ejf.world/webhooks/stripe")
+            print("  2. Event_monitor webhook endpoint: https://your-webhook-domain.example.com/webhooks/stripe")
             print()
             if not prompt_yes_no("Continue?"):
                 return {"status": "cancelled"}
@@ -192,7 +192,7 @@ class Event_monitorCLI(CLIBase):
             from repose.agents.event_monitor import setup_stripe
             result = setup_stripe(secret)
             print(_format_green(f"\n  Stripe configured. Signature verification enabled.", use_color))
-            print(f"  Next: configure Stripe dashboard to send webhooks to https://webhooks.ejf.world/webhooks/stripe")
+            print(f"  Next: configure Stripe dashboard to send webhooks to https://your-webhook-domain.example.com/webhooks/stripe")
             return result
 
         if verb == "test":
@@ -210,7 +210,7 @@ class Event_monitorCLI(CLIBase):
             print()
             print("Prerequisites:")
             print("  1. GitHub repo admin access")
-            print("  2. Event_monitor webhook endpoint: https://webhooks.ejf.world/webhooks/github")
+            print("  2. Event_monitor webhook endpoint: https://your-webhook-domain.example.com/webhooks/github")
             print()
 
             if not prompt_yes_no("Continue?"):

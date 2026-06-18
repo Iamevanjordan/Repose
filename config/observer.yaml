@@ -78,7 +78,7 @@ substrate_health:
       alert_after_failures: 2
     cloudflare_tunnel:
       check: http_endpoint
-      endpoint: https://webhooks.ejf.world/health
+      endpoint: https://your-webhook-domain.example.com/health
       alert_after_failures: 2
       note: "Event_monitor depends on this \u2014 failure here means Event_monitor is deaf"
 quality_drift:
