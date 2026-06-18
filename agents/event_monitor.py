@@ -81,18 +81,51 @@ def get_config() -> dict:
     return _config
 
 
-# ── In-memory Chronogram writes ─────────────────────────────────────────
+# ── Chronogram writes (durable, cross-agent) ────────────────────────────
 
 def _write_chronogram(namespace: str, record: dict) -> dict:
-    """Write an event record to Chronogram (in-memory fallback)."""
+    """Write an event record to the shared Chronogram memory layer.
+
+    Primary path: repose.utils.chronogram.store_artifact() — a real HTTP
+    write to the cross-agent Chronogram memory-api (host + API key resolved
+    via Bitwarden in that module; nothing hardcoded here). This is what makes
+    event_monitor's records visible to other agents instead of dying in a
+    per-process buffer.
+
+    Fallback path: if Chronogram is unreachable (transport error, Bitwarden
+    down, config missing), the record is appended to the in-memory
+    ``_event_store`` so webhook ingest never blocks. The in-memory list is a
+    last-resort buffer ONLY — it is never the primary durability path.
+    """
     entry = {
         "namespace": namespace,
         "timestamp": time.time(),
         "timestamp_iso": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         **record,
     }
-    _event_store.append(entry)
-    logger.info("Chronogram [%s] wrote event %s", namespace, record.get("event_id", "?"))
+    try:
+        from repose.utils.chronogram import store_artifact
+        store_artifact(
+            namespace=namespace,
+            content=json.dumps(entry, default=str),
+            metadata={
+                "source": "event_monitor",
+                "type_hint": "episodic",
+                "source_id": record.get("event_id"),
+                "lane": record.get("lane"),
+                "event_source": record.get("source"),
+            },
+        )
+        logger.info("Chronogram [%s] wrote event %s", namespace, record.get("event_id", "?"))
+    except Exception as exc:
+        # Chronogram unreachable — degrade to the in-memory buffer so ingest
+        # is never lost, but surface the failure loudly. This is the fallback,
+        # not the primary path.
+        _event_store.append(entry)
+        logger.warning(
+            "Chronogram [%s] write failed for event %s; using in-memory fallback: %s",
+            namespace, record.get("event_id", "?"), exc,
+        )
     return entry
 
 

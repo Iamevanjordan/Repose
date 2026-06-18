@@ -112,10 +112,13 @@ def build_external_signal(
 
 
 def archive_signal(record: dict) -> dict:
-    """Write an external_signal record to Chronogram (intel_feed-archive namespace).
+    """Write an external_signal record to the shared Chronogram.
 
-    In production, writes to Redis db=0 under repose:intel_feed-archive:* keys.
-    For MVP, writes to local JSONL file and in-memory cache.
+    Primary path: repose.utils.chronogram.store_artifact() into the
+    intel_feed-archive namespace — a durable, cross-agent write (Chronogram
+    host + API key resolved via Bitwarden in that module; nothing hardcoded
+    here). Local JSONL is a FALLBACK only, written when Chronogram is
+    unreachable so novelty/debugging still has a local record.
 
     Args:
         record: external_signal dict from build_external_signal().
@@ -141,10 +144,30 @@ def archive_signal(record: dict) -> dict:
         },
     )
 
-    # Write to local archive
-    _write_to_local_archive(record)
+    # Primary durable persistence: shared Chronogram.
+    try:
+        from repose.utils.chronogram import store_artifact
+        store_artifact(
+            namespace=namespace,
+            content=json.dumps(record, default=str),
+            metadata={
+                "source": "intel_feed",
+                "type_hint": "episodic",
+                "source_id": record["signal_id"],
+                "intel_source": record["source_id"],
+                "surfaced": record["surfaced"],
+                "all_gates_passed": record["all_gates_passed"],
+            },
+        )
+    except Exception as exc:
+        # Chronogram unreachable — fall back to local JSONL only.
+        logger.warning(
+            "Chronogram archive write failed for signal %s; local JSONL fallback: %s",
+            record["signal_id"], exc,
+        )
+        _write_to_local_archive(record)
 
-    # Also update in-memory archive cache for novelty scoring
+    # Always update the in-memory archive cache for novelty scoring (in-process).
     try:
         from repose.agents.intel_feed.scoring import _add_to_archive_cache
         _add_to_archive_cache(record)

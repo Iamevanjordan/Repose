@@ -49,17 +49,48 @@ except Exception:
 
 
 def _archive_signal(signal: dict):
-    """Add a scored signal to the in-memory archive for observations
-    and the scoring module's novelty cache, and persist to local JSONL."""
+    """Persist a scored signal.
+
+    Durable cross-agent persistence goes to the shared Chronogram
+    (intel_feed-archive namespace) as the PRIMARY path so other agents can
+    recall surfaced signals. The in-memory ``_archive_records`` list and the
+    scoring novelty cache are kept for fast in-process reads (observations,
+    novelty scoring). Local JSONL is now a FALLBACK only — written solely when
+    Chronogram is unreachable, so per-process restarts still have something to
+    rebuild from for debugging."""
     global _archive_records
     _archive_records.append(signal)
     _add_to_archive_cache(signal)
-    # Persist to local JSONL file for cross-process durability
+
+    namespace = (
+        get_intel_feed_config().get("chronogram", {}).get("archive_namespace", "intel_feed-archive")
+    )
     try:
-        from repose.agents.intel_feed.archiver import _write_to_local_archive
-        _write_to_local_archive(signal)
-    except Exception:
-        pass
+        from repose.utils.chronogram import store_artifact
+        store_artifact(
+            namespace=namespace,
+            content=json.dumps(signal, default=str),
+            metadata={
+                "source": "intel_feed",
+                "type_hint": "episodic",
+                "source_id": signal.get("signal_id"),
+                "intel_source": signal.get("source_id"),
+                "surfaced": signal.get("surfaced", False),
+                "all_gates_passed": signal.get("all_gates_passed", False),
+            },
+        )
+    except Exception as exc:
+        # Chronogram unreachable — fall back to local JSONL for durability.
+        logger.warning(
+            "Chronogram archive write failed for signal %s; local JSONL fallback: %s",
+            signal.get("signal_id", "?"), exc,
+        )
+        try:
+            from repose.agents.intel_feed.archiver import _write_to_local_archive
+            _write_to_local_archive(signal)
+        except Exception:
+            pass
+
     # Keep bounded
     if len(_archive_records) > 5000:
         _archive_records = _archive_records[-2500:]
