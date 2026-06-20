@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "repose"
 version = "1.0.0"
-description = "Repose OS — Hermes Agent Operations Framework"
+description = "Repose OS — Agent Operations Framework"
 requires-python = ">=3.11"
 dependencies = [
     "pyyaml>=6.0",

@@ -106,7 +106,7 @@ def _call_litellm(
     Endpoint + credential come from intel_feed.yaml gates.llm_relevance: api_base is
     operator config and the API key is resolved through Bitwarden SM only
     (RPOSE-008) -- never from the process environment. The litellm SDK is
-    intentionally not used (absent from the hermes venv); this posts directly to
+    intentionally not used (absent from the runtime venv); this posts directly to
     the gateway, mirroring agents/event_monitor.py::_call_llm.
 
     Returns parsed JSON ({score, confidence, reasoning}) or None on any failure,

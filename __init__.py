@@ -1,1 +1,1 @@
-"""Repose OS - Hermes Agent Operations Framework."""
+"""Repose OS - Agent Operations Framework."""

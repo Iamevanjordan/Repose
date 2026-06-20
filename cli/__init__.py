@@ -365,7 +365,7 @@ def cmd_repose_help(args) -> int:
 def main():
     parser = argparse.ArgumentParser(
         prog="repose",
-        description="Repose OS — Hermes Agent Operations Framework CLI",
+        description="Repose OS — Agent Operations Framework CLI",
         add_help=False,
     )
     parser.add_argument(

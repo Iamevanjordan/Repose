@@ -9,7 +9,7 @@
     "full_name": "your-org/repose-os",
     "private": true,
     "html_url": "https://github.com/your-org/repose-os",
-    "description": "Repose OS \u2014 Hermes Agent Operations Framework",
+    "description": "Repose OS \u2014 Agent Operations Framework",
     "default_branch": "main"
   },
   "pusher": {
