@@ -38,13 +38,16 @@ logger = logging.getLogger(__name__)
 # ── Fixture base path ────────────────────────────────────────────────────
 FIXTURES_BASE = Path(__file__).resolve().parent.parent / "fixtures" / "event_monitor"
 
-# ── Default the CLI to test mode for offline classification ────────────────
-# EVENT_MONITOR_TEST_MODE only routes the classifier to its local heuristic
-# (no LLM API call) and enables sources in config for `test` runs. It does NOT
-# affect signature verification — webhook HMAC checks always run and always
-# fail closed when no secret is configured (see verify_signature). This is a
-# non-credential convenience toggle, never a security bypass.
-os.environ.setdefault("EVENT_MONITOR_TEST_MODE", "true")
+# NOTE (RPOSE-FIND6): test mode is NO LONGER enabled as a module-level import
+# side effect. Importing this CLI used to call
+# os.environ.setdefault("EVENT_MONITOR_TEST_MODE", "true"), which globally
+# routed the live classifier to its offline heuristic for the entire `repose`
+# process — so `repose event_monitor` silently diverged from live daemon
+# behavior. Test mode is now OPT-IN: the offline `test` subcommand enables it
+# for its own run only, and an explicit `--test-mode` flag enables it for other
+# commands when a user asks. EVENT_MONITOR_TEST_MODE only routes the classifier
+# to its local heuristic (no LLM API call); it never affects signature
+# verification (webhook HMAC always runs and fails closed — see process_event).
 
 
 class Event_monitorCLI(CLIBase):
@@ -400,12 +403,22 @@ class Event_monitorCLI(CLIBase):
         parser.add_argument("--last", default=None)
         parser.add_argument("--event-fixture", default=None)
         parser.add_argument("--yes", action="store_true")
+        parser.add_argument(
+            "--test-mode",
+            action="store_true",
+            help="Route the classifier to the offline heuristic (no LLM call). "
+                 "Opt-in only; live commands use real classification by default.",
+        )
 
         parsed = parser.parse_args(self.args)
         self._parsed_args = parsed
 
         if parsed.format == "json":
             self.use_json = True
+
+        # Opt-in test mode for live commands (never a module-level default).
+        if parsed.test_mode:
+            os.environ["EVENT_MONITOR_TEST_MODE"] = "true"
 
         # Special: 'test' as standalone command
         if parsed.noun_or_cmd == "test":
@@ -437,6 +450,11 @@ class Event_monitorCLI(CLIBase):
             return 1
 
     def _handle_test(self, parsed) -> int:
+        # The `test` subcommand runs offline against a local fixture, so route
+        # the classifier to its heuristic for this run only. This is scoped to
+        # the test path — it never globally toggles live classification.
+        os.environ["EVENT_MONITOR_TEST_MODE"] = "true"
+
         source = parsed.source
         fixture = parsed.event_fixture
 

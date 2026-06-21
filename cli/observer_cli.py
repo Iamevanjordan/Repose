@@ -48,7 +48,7 @@ class ObserverCLI(CLIBase):
 
     def handle(self, noun: str, verb: str, args: List[str]) -> Any:
         """Dispatch to the appropriate handler based on noun + verb."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         if noun == "observations":
             return self._observations_handler(verb, args)
@@ -69,7 +69,7 @@ class ObserverCLI(CLIBase):
 
     def _observations_handler(self, verb: str, args: List[str]) -> Any:
         """Handle repose observer observations <verb>."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         if verb == "list":
             return self._observations_list(args)
@@ -78,7 +78,7 @@ class ObserverCLI(CLIBase):
 
     def _observations_list(self, args: List[str]) -> Any:
         """Handle repose observer observations list."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         # Parse optional flags from remaining args
         severity = None
@@ -107,7 +107,7 @@ class ObserverCLI(CLIBase):
 
     def _ack_handler(self, verb: str, args: List[str]) -> Any:
         """Handle repose observer ack <observation_id> --type <type>."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         if verb not in ("noted", "wont_fix", "resolved"):
             return {"error": f"Unknown ack verb: {verb}. Use --type noted|wont_fix|resolved"}
@@ -147,7 +147,7 @@ class ObserverCLI(CLIBase):
 
     def _admin_handler(self, sub_noun: str, verb: str, args: List[str]) -> Any:
         """Handle repose observer admin <sub_noun> <verb> [args]."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         if sub_noun == "agents":
             return self._admin_agents(verb, args)
@@ -166,32 +166,28 @@ class ObserverCLI(CLIBase):
 
     def _admin_agents(self, verb: str, args: List[str]) -> Any:
         """Handle repose observer admin agents <verb>."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         if verb == "list":
-            cfg = observer.get_observer_config()
-            agents = cfg.get("execution_health", {}).get("observed_agents", {})
-            return [
-                {
-                    "agent": name,
-                    "enabled": c.get("enabled", False),
-                    "namespace": c.get("namespace", ""),
-                    "expected_writes_per_day": c.get("expected_writes_per_day"),
-                    "max_silence_hours": c.get("max_silence_hours"),
-                    "max_error_rate_per_hour": c.get("max_error_rate_per_hour"),
-                }
-                for name, c in sorted(agents.items())
-            ]
+            # observer_core.admin_agents_list() returns the same shape the live
+            # daemon sees; sort for the CLI's deterministic-ordering guarantee.
+            return sorted(observer.admin_agents_list(), key=lambda a: a["agent"])
 
         elif verb == "enable":
             if not args:
                 return {"error": "agent name required"}
-            return observer.enable_agent(args[0])
+            try:
+                return observer.admin_agent_enable(args[0])
+            except ValueError as e:
+                return {"error": str(e)}
 
         elif verb == "disable":
             if not args:
                 return {"error": "agent name required"}
-            return observer.disable_agent(args[0])
+            try:
+                return observer.admin_agent_disable(args[0])
+            except ValueError as e:
+                return {"error": str(e)}
 
         elif verb == "set":
             if len(args) < 3:
@@ -200,10 +196,8 @@ class ObserverCLI(CLIBase):
             key = args[1]
             value = args[2]
 
-            cfg = observer.get_observer_config()
-            agents = cfg.get("execution_health", {}).get("observed_agents", {})
-            if agent_name not in agents:
-                return {"error": f"Agent '{agent_name}' not found"}
+            if key != "expected_writes_per_day":
+                return {"error": f"Unsupported key: {key}. Only expected_writes_per_day is settable."}
 
             if value.lower() == "null":
                 parsed = None
@@ -213,9 +207,10 @@ class ObserverCLI(CLIBase):
                 except ValueError:
                     return {"error": f"Invalid value: {value}"}
 
-            agents[agent_name][key] = parsed
-            updates = {"execution_health": {"observed_agents": agents}}
-            cfg = observer.update_observer_config(updates)
+            try:
+                observer.admin_agent_set_writes(agent_name, parsed)
+            except ValueError as e:
+                return {"error": str(e)}
             return {"agent": agent_name, key: parsed, "status": "updated"}
 
         else:
@@ -223,28 +218,22 @@ class ObserverCLI(CLIBase):
 
     def _admin_subsystems(self, verb: str, args: List[str]) -> Any:
         """Handle repose observer admin subsystems <verb>."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         if verb == "list":
-            cfg = observer.get_observer_config()
-            return [
-                {
-                    "subsystem": name,
-                    "enabled": cfg.get(name, {}).get("enabled", False),
-                    "cron": cfg.get(name, {}).get("cron", ""),
-                }
-                for name in ["execution_health", "substrate_health", "quality_drift"]
-            ]
+            return observer.admin_subsystems_list()
 
         elif verb in ("enable", "disable"):
             if not args:
                 return {"error": "subsystem name required"}
             sub_name = args[0]
-            if sub_name not in ("execution_health", "substrate_health", "quality_drift"):
-                return {"error": f"Unknown subsystem: {sub_name}"}
-
-            updates = {sub_name: {"enabled": verb == "enable"}}
-            cfg = observer.update_observer_config(updates)
+            try:
+                if verb == "enable":
+                    observer.admin_subsystem_enable(sub_name)
+                else:
+                    observer.admin_subsystem_disable(sub_name)
+            except ValueError as e:
+                return {"error": str(e)}
             return {"subsystem": sub_name, "enabled": verb == "enable", "status": "updated"}
 
         else:
@@ -252,7 +241,7 @@ class ObserverCLI(CLIBase):
 
     def _admin_thresholds(self, verb: str, args: List[str]) -> Any:
         """Handle repose observer admin thresholds set <path> <value>."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         if verb == "set":
             if len(args) < 2:
@@ -266,16 +255,10 @@ class ObserverCLI(CLIBase):
             except ValueError:
                 return {"error": f"Invalid float value: {value_str}"}
 
-            # Parse dotted path
-            parts = path.split(".")
-            updates = {}
-            current = updates
-            for i, part in enumerate(parts[:-1]):
-                current[part] = {}
-                current = current[part]
-            current[parts[-1]] = value
-
-            cfg = observer.update_observer_config(updates)
+            try:
+                observer.admin_threshold_set(path, value)
+            except ValueError as e:
+                return {"error": str(e)}
             return {"path": path, "value": value, "status": "updated"}
 
         else:
@@ -283,7 +266,7 @@ class ObserverCLI(CLIBase):
 
     def _admin_baseline(self, verb: str, args: List[str]) -> Any:
         """Handle repose observer admin baseline recompute."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         if verb == "recompute":
             target_agent = None
@@ -295,12 +278,14 @@ class ObserverCLI(CLIBase):
                 else:
                     i += 1
 
-            # Trigger quality drift check to recompute baselines
-            obs = observer.check_quality_drift(agent=target_agent)
+            # observer_core exposes a dedicated baseline recompute (read-only
+            # aggregate) rather than overloading check_quality_drift.
+            result = observer.admin_baseline_recompute(target_agent)
             return {
                 "status": "recomputed",
                 "agent": target_agent or "all",
-                "observations_generated": len(obs),
+                "baselines": result.get("baselines", {}),
+                "window_days": result.get("window_days"),
             }
 
         else:
@@ -308,17 +293,16 @@ class ObserverCLI(CLIBase):
 
     def _admin_credentials(self, verb: str, args: List[str]) -> Any:
         """Handle repose observer admin credentials setup."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         if verb == "setup":
-            result = observer.setup_credentials()
-            return result
+            return observer.admin_credentials_setup()
         else:
             return {"error": f"Unknown credentials verb: {verb}"}
 
     def _admin_test(self, verb: str, args: List[str]) -> Any:
         """Handle repose observer admin test --subsystem <name>."""
-        from repose.agents import observer
+        from repose.agents import observer_core as observer
 
         subsystem = None
         i = 0
