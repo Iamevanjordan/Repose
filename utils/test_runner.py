@@ -173,16 +173,16 @@ def test_pol_05_critical_bypass():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 6. Rate-limited message produces Chronogram record
+# 6. Rate-limited message produces ORCA record
 # ═══════════════════════════════════════════════════════════════════════════
-def test_pol_06_rate_limit_chronogram():
-    """POL-6: Rate-limited messages produce Chronogram records in system-events."""
+def test_pol_06_rate_limit_orca():
+    """POL-6: Rate-limited messages produce ORCA records in system-events."""
     from repose.utils.telegram_router import (
         route_message,
         _set_telegram_config_override,
         reset_rate_limits,
     )
-    from repose.utils.chronogram import get_recent_events, clear_events
+    from repose.utils.orca import get_recent_events, clear_events
 
     reset_rate_limits()
     clear_events()
@@ -208,11 +208,11 @@ def test_pol_06_rate_limit_chronogram():
 
     assert result["rate_limited"] is True, f"Expected rate_limited=True: {result}"
 
-    # Check Chronogram
+    # Check ORCA
     events = get_recent_events(agent="morning_brief")
     rate_limited_events = [e for e in events if e.get("rate_limited")]
     assert len(rate_limited_events) > 0, (
-        f"No rate-limited events found in Chronogram. Events: {events}"
+        f"No rate-limited events found in ORCA. Events: {events}"
     )
 
 
@@ -228,7 +228,7 @@ def test_pol_07_telegram_router_tests():
     - Routes informational to informational channel
     - Enforces per-agent rate limits
     - Critical bypasses rate limit
-    - Rate-limited messages logged to Chronogram
+    - Rate-limited messages logged to ORCA
     - Does not raise on API failure
     - Invalid agent/priority returns error
     - All agents have rate limits
@@ -241,7 +241,7 @@ def test_pol_07_telegram_router_tests():
         _set_telegram_config_override, _clear_telegram_config_override,
         AGENT_RATE_LIMITS, VALID_AGENTS,
     )
-    from repose.utils.chronogram import get_recent_events, clear_events
+    from repose.utils.orca import get_recent_events, clear_events
 
     reset_rate_limits()
     _clear_telegram_config_override()
@@ -287,7 +287,7 @@ def test_pol_07_telegram_router_tests():
         r = route_message(agent="morning_brief", message="CRITICAL", priority="critical", bypass_rate_limit=True)
         t("critical bypasses rate limit", r["rate_limited"] is False)
 
-    # Rate-limited logged to Chronogram
+    # Rate-limited logged to ORCA
     clear_events()
     reset_rate_limits()
     with mock.patch("repose.utils.telegram_router._send_telegram_message", return_value=True):
@@ -297,7 +297,7 @@ def test_pol_07_telegram_router_tests():
     t("rate-limited should be logged", r["rate_limited"] is True)
     events = get_recent_events(agent="morning_brief")
     rl_events = [e for e in events if e.get("rate_limited")]
-    t("rate-limited events in Chronogram", len(rl_events) > 0)
+    t("rate-limited events in ORCA", len(rl_events) > 0)
 
     # Does not raise on Telegram API failure
     with mock.patch("repose.utils.telegram_router._send_telegram_message", return_value=False):
@@ -499,7 +499,7 @@ if __name__ == "__main__":
     test("POL-03: route_message imports cleanly", test_pol_03_import_cleanly)
     test("POL-04: Informational routing returns correct shape", test_pol_04_intel_feed_informational)
     test("POL-05: Critical bypass routes to critical channel", test_pol_05_critical_bypass)
-    test("POL-06: Rate-limited messages logged to Chronogram", test_pol_06_rate_limit_chronogram)
+    test("POL-06: Rate-limited messages logged to ORCA", test_pol_06_rate_limit_orca)
     test("POL-07: telegram_router comprehensive tests", test_pol_07_telegram_router_tests)
     test("POL-08: cli_base comprehensive tests", test_pol_08_cli_base_tests)
     test("POL-09: repose --help lists all 5 agent namespaces", test_pol_09_repose_help)

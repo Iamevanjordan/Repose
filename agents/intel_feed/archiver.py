@@ -1,4 +1,4 @@
-"""Chronogram archiver for Intel_feed Lite.
+"""ORCA archiver for Intel_feed Lite.
 
 Writes external_signal records to intel_feed-archive namespace.
 Manages the archive for novelty comparison.
@@ -12,11 +12,11 @@ from pathlib import Path
 from typing import Optional
 
 from repose.agents.intel_feed.config import get_intel_feed_config
-from repose.utils.chronogram import log_system_event
+from repose.utils.orca import log_system_event
 
 logger = logging.getLogger(__name__)
 
-# Local archive file (fallback when Redis/Chronogram is unavailable)
+# Local archive file (fallback when Redis/ORCA is unavailable)
 _ARCHIVE_FILE = Path(__file__).resolve().parent.parent.parent.parent / ".intel_feed_archive.jsonl"
 
 
@@ -112,12 +112,12 @@ def build_external_signal(
 
 
 def archive_signal(record: dict) -> dict:
-    """Write an external_signal record to the shared Chronogram.
+    """Write an external_signal record to the shared ORCA.
 
-    Primary path: repose.utils.chronogram.store_artifact() into the
-    intel_feed-archive namespace — a durable, cross-agent write (Chronogram
+    Primary path: repose.utils.orca.store_artifact() into the
+    intel_feed-archive namespace — a durable, cross-agent write (ORCA
     host + API key resolved via Bitwarden in that module; nothing hardcoded
-    here). Local JSONL is a FALLBACK only, written when Chronogram is
+    here). Local JSONL is a FALLBACK only, written when ORCA is
     unreachable so novelty/debugging still has a local record.
 
     Args:
@@ -144,9 +144,9 @@ def archive_signal(record: dict) -> dict:
         },
     )
 
-    # Primary durable persistence: shared Chronogram.
+    # Primary durable persistence: shared ORCA.
     try:
-        from repose.utils.chronogram import store_artifact
+        from repose.utils.orca import store_artifact
         store_artifact(
             namespace=namespace,
             content=json.dumps(record, default=str),
@@ -160,9 +160,9 @@ def archive_signal(record: dict) -> dict:
             },
         )
     except Exception as exc:
-        # Chronogram unreachable — fall back to local JSONL only.
+        # ORCA unreachable — fall back to local JSONL only.
         logger.warning(
-            "Chronogram archive write failed for signal %s; local JSONL fallback: %s",
+            "ORCA archive write failed for signal %s; local JSONL fallback: %s",
             record["signal_id"], exc,
         )
         _write_to_local_archive(record)

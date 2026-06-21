@@ -10,7 +10,7 @@ import re
 from typing import Optional
 
 from repose.agents.intel_feed.config import get_sanitization_patterns
-from repose.utils.chronogram import log_system_event
+from repose.utils.orca import log_system_event
 
 logger = logging.getLogger(__name__)
 

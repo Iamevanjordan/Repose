@@ -1,6 +1,6 @@
 """
 Morning_brief context builder.
-Assembles all inputs for brief composition from Chronogram namespaces.
+Assembles all inputs for brief composition from ORCA namespaces.
 Reads namespace names and query parameters from /config/morning_brief.yaml.
 Graceful fallback for any namespace that is empty, missing, or errors.
 """
@@ -31,7 +31,7 @@ class Morning_briefContext:
 def _is_recent(record: dict, days: int = _BUSINESS_STATE_RECENCY_DAYS) -> bool:
     """Return True if record was created within the last N days.
 
-    Chronogram returns createdAt at the top level of each record dict.
+    ORCA returns createdAt at the top level of each record dict.
     Custom metadata.written_at is not preserved in recall responses.
     """
     ts_str = record.get("createdAt", "")

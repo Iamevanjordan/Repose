@@ -1,18 +1,24 @@
-"""Chronogram — Orca memory layer for Repose OS (real HTTP client).
+"""ORCA — cross-agent memory layer for Repose OS (real HTTP client).
+
+ORCA is the memory layer's name (after Eddie's ORCA project). The config-key
+namespace (``chronogram.http`` in repose_config.yaml), the deployed memory-api
+service hostname, and the external ``src.chronogram`` client package retain the
+``chronogram`` identifier by design — those are deployed/wire-level names, not
+the cosmetic layer name.
 
 This module is the cross-agent memory path. Intel_feed, Event_monitor and Observer all import
-from here so that everything they record lands in the shared Chronogram
+from here so that everything they record lands in the shared ORCA
 memory-api instead of a per-process buffer.
 
-Transport: HTTP against the Chronogram memory-api (``/v1/memories/*``).
+Transport: HTTP against the ORCA memory-api (``/v1/memories/*``).
   - Connection target and the Bitwarden secret id for the API key are read from
     ``repose/config/repose_config.yaml`` under ``chronogram.http``. Nothing is
     hardcoded here and there is NO environment-variable fallback.
   - The API key is resolved through Bitwarden Secrets Manager only
     (RPOSE-008). If Bitwarden is unreachable or the key is missing, the call
-    raises ChronogramError — it never silently degrades.
+    raises OrcaError — it never silently degrades.
 
-There is intentionally no in-memory fallback store: a failed Chronogram call
+There is intentionally no in-memory fallback store: a failed ORCA call
 raises so the caller fails closed rather than writing to a buffer that no other
 agent can read (the original cross-agent memory bug).
 """
@@ -31,12 +37,12 @@ from repose.utils.bitwarden import get_secret
 logger = logging.getLogger(__name__)
 
 # HTTP errors are noisy at INFO because httpx/requests log request URLs that can
-# embed tokens elsewhere in the stack; keep Chronogram's own logging at DEBUG.
+# embed tokens elsewhere in the stack; keep ORCA's own logging at DEBUG.
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
-class ChronogramError(Exception):
-    """Raised when Chronogram operations fail. Never caught to fall back to an
+class OrcaError(Exception):
+    """Raised when ORCA operations fail. Never caught to fall back to an
     in-memory store — callers must fail closed."""
 
 
@@ -49,7 +55,7 @@ _api_key: str | None = None
 def _config() -> dict:
     """Return the validated ``chronogram.http`` config block.
 
-    Raises ChronogramError if the block (or a required key) is missing — there
+    Raises OrcaError if the block (or a required key) is missing — there
     is no hardcoded default endpoint.
     """
     global _http_cfg
@@ -58,13 +64,13 @@ def _config() -> dict:
     chrono = repose_config.get("chronogram", {}) or {}
     http = chrono.get("http")
     if not http:
-        raise ChronogramError(
+        raise OrcaError(
             "chronogram.http missing from repose_config.yaml; refusing to "
-            "guess a Chronogram endpoint."
+            "guess a ORCA endpoint."
         )
     for required in ("base_url", "api_key_secret_id"):
         if not http.get(required):
-            raise ChronogramError(
+            raise OrcaError(
                 f"chronogram.http.{required} missing from repose_config.yaml."
             )
     _http_cfg = http
@@ -81,7 +87,7 @@ def _timeout() -> float:
 
 
 def _key() -> str:
-    """Resolve the Chronogram API key via Bitwarden SM (cached).
+    """Resolve the ORCA API key via Bitwarden SM (cached).
 
     The config value is a ``bitwarden:<secret-name>`` reference. There is no
     env-var or literal fallback — a bad reference raises.
@@ -91,7 +97,7 @@ def _key() -> str:
         return _api_key
     ref = _config()["api_key_secret_id"]
     if not isinstance(ref, str) or not ref.startswith("bitwarden:"):
-        raise ChronogramError(
+        raise OrcaError(
             "chronogram.http.api_key_secret_id must be a 'bitwarden:<name>' "
             f"reference (got {ref!r}); Bitwarden is the only secrets layer."
         )
@@ -110,9 +116,9 @@ def _client() -> requests.Session:
 
 
 def _request(method: str, path: str, *, json_body: dict | None = None) -> dict:
-    """Perform an authenticated Chronogram request and return parsed JSON.
+    """Perform an authenticated ORCA request and return parsed JSON.
 
-    Raises ChronogramError on any transport error or non-2xx response. No
+    Raises OrcaError on any transport error or non-2xx response. No
     fallback path exists.
     """
     base = _config()["base_url"].rstrip("/")
@@ -123,12 +129,12 @@ def _request(method: str, path: str, *, json_body: dict | None = None) -> dict:
             method, url, headers=headers, json=json_body, timeout=_timeout()
         )
     except requests.RequestException as e:
-        raise ChronogramError(
-            f"Chronogram {method} {path} failed to connect: {e}"
+        raise OrcaError(
+            f"ORCA {method} {path} failed to connect: {e}"
         ) from e
     if not (200 <= resp.status_code < 300):
-        raise ChronogramError(
-            f"Chronogram {method} {path} returned {resp.status_code}: "
+        raise OrcaError(
+            f"ORCA {method} {path} returned {resp.status_code}: "
             f"{resp.text[:300]}"
         )
     if not resp.content:
@@ -136,8 +142,8 @@ def _request(method: str, path: str, *, json_body: dict | None = None) -> dict:
     try:
         return resp.json()
     except ValueError as e:
-        raise ChronogramError(
-            f"Chronogram {method} {path} returned non-JSON body: {e}"
+        raise OrcaError(
+            f"ORCA {method} {path} returned non-JSON body: {e}"
         ) from e
 
 
@@ -175,7 +181,7 @@ def _list_workspace() -> list[dict]:
 
 
 def store_artifact(namespace: str, content: str, metadata: dict | None = None) -> dict:
-    """Store a memory artifact in the shared Chronogram under ``namespace``.
+    """Store a memory artifact in the shared ORCA under ``namespace``.
 
     Args:
         namespace: Logical grouping (e.g. "intel_feed-archive", "event_monitor-events").
@@ -186,10 +192,10 @@ def store_artifact(namespace: str, content: str, metadata: dict | None = None) -
             other scalar entries are appended as ``key=value`` tags.
 
     Returns:
-        The Chronogram ingest response dict (memoryId, accepted, ...).
+        The ORCA ingest response dict (memoryId, accepted, ...).
 
     Raises:
-        ChronogramError: on any connection/HTTP failure (no silent fallback).
+        OrcaError: on any connection/HTTP failure (no silent fallback).
     """
     metadata = metadata or {}
     tags = ["repose-artifact", f"ns:{namespace}", namespace]
@@ -200,7 +206,7 @@ def store_artifact(namespace: str, content: str, metadata: dict | None = None) -
             continue
         if isinstance(v, (str, int, float, bool)):
             tags.append(f"{k}={v}")
-    logger.debug("Chronogram op=store_artifact ns=%s len=%d", namespace, len(content))
+    logger.debug("ORCA op=store_artifact ns=%s len=%d", namespace, len(content))
     return _ingest(
         content=content,
         source=metadata.get("source", f"repose:{namespace}"),
@@ -216,7 +222,7 @@ def query(namespace: str, query_text: str, limit: int = 20) -> list[dict]:
     Returns the ranked ``context`` list of memory artifacts (each a dict).
 
     Raises:
-        ChronogramError: on any connection/HTTP failure (no silent fallback).
+        OrcaError: on any connection/HTTP failure (no silent fallback).
     """
     payload = {
         "query": query_text,
@@ -224,7 +230,7 @@ def query(namespace: str, query_text: str, limit: int = 20) -> list[dict]:
         "limit": limit,
         "filter": {"tags": [f"ns:{namespace}"]},
     }
-    logger.debug("Chronogram op=query ns=%s q=%r", namespace, query_text[:60])
+    logger.debug("ORCA op=query ns=%s q=%r", namespace, query_text[:60])
     data = _request("POST", "/v1/memories/recall", json_body=payload)
     return data.get("context", []) or []
 
@@ -244,14 +250,14 @@ def log_system_event(
     error: str | None = None,
     extra: dict | None = None,
 ) -> dict:
-    """Log a system event to the shared Chronogram.
+    """Log a system event to the shared ORCA.
 
     Returns the event record as a dict (same shape as before). Raises
-    ChronogramError if the event cannot be written — there is no in-memory
+    OrcaError if the event cannot be written — there is no in-memory
     fallback.
     """
     event: dict = {
-        # event_id makes each logical event uniquely identifiable. Chronogram
+        # event_id makes each logical event uniquely identifiable. ORCA
         # fans one ingest out into several artifacts (working-memory +
         # semantic-store + ...), all carrying identical content; get_recent_events
         # dedups on this id so callers see one event, not N copies.
@@ -275,7 +281,7 @@ def log_system_event(
         tags.append("rate-limited")
 
     logger.debug(
-        "Chronogram op=log_system_event ns=%s agent=%s rate_limited=%s error=%s",
+        "ORCA op=log_system_event ns=%s agent=%s rate_limited=%s error=%s",
         namespace, agent, rate_limited, error,
     )
     _ingest(
@@ -293,10 +299,10 @@ def get_recent_events(
     agent: str | None = None,
     limit: int = 100,
 ) -> list[dict]:
-    """Retrieve recent system events from the shared Chronogram.
+    """Retrieve recent system events from the shared ORCA.
 
     Reconstructs the original event dicts from artifact content, filtered by
-    namespace/agent, most recent first. Raises ChronogramError on failure.
+    namespace/agent, most recent first. Raises OrcaError on failure.
     """
     artifacts = _list_workspace()
     events: list[dict] = []
@@ -315,7 +321,7 @@ def get_recent_events(
             continue
         if not isinstance(ev, dict):
             continue
-        # Dedup the multiple artifacts Chronogram creates per ingest.
+        # Dedup the multiple artifacts ORCA creates per ingest.
         dedup_key = ev.get("event_id") or "{}|{}|{}|{}".format(
             ev.get("timestamp"), ev.get("namespace"),
             ev.get("agent"), ev.get("message_preview"),
@@ -348,11 +354,11 @@ def record_system_event(data: dict) -> dict:
 def clear_events() -> None:
     """No-op retained for API compatibility.
 
-    The Chronogram memory-api exposes no bulk-delete endpoint, so events cannot
+    The ORCA memory-api exposes no bulk-delete endpoint, so events cannot
     be cleared from the shared store. Previously this cleared a per-process
     in-memory buffer (the cross-agent memory bug). Test suites that relied on
     clearing should scope their assertions by tag/namespace instead.
     """
     logger.debug(
-        "Chronogram clear_events() is a no-op against the shared memory-api."
+        "ORCA clear_events() is a no-op against the shared memory-api."
     )

@@ -145,8 +145,8 @@ pol("POL 6.b: Not classified",
     get_stats()["events_classified"] == 0,
     f"events_classified={get_stats()['events_classified']} (should be 0)")
 
-# Check system-events from chronogram
-from repose.utils.chronogram import get_recent_events
+# Check system-events from orca
+from repose.utils.orca import get_recent_events
 sys_events = get_recent_events(namespace="system-events")
 pol("POL 6.c: Failure logged to system-events",
     len(sys_events) >= 1,

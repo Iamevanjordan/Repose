@@ -244,7 +244,7 @@ def _load_archive() -> list[dict]:
     if _archive_cache:
         return _archive_cache
 
-    # In production, this queries Chronogram/Redis for intel_feed-archive namespace.
+    # In production, this queries ORCA/Redis for intel_feed-archive namespace.
     # For MVP, the archive is populated during scan runs.
     return _archive_cache
 

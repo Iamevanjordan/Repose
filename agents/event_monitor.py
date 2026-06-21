@@ -7,7 +7,7 @@ Webhook receiver + event classification pipeline:
   3. Deduplicate (Redis db=3, with in-memory fallback)
   4. Sanitize payloads
   5. Classify via LLM into 4 routing lanes
-  6. Route to Chronogram namespaces
+  6. Route to ORCA namespaces
   7. Surface to Telegram via shared telegram_router.py
 
 Config-driven: all operator values from event_monitor.yaml. Nothing hardcoded.
@@ -38,7 +38,7 @@ logger = logging.getLogger("event_monitor")
 # ── Module-level state ──────────────────────────────────────────────────
 _config: dict = {}
 _server: Optional[HTTPServer] = None
-_event_store: list[dict] = []          # In-memory Chronogram fallback
+_event_store: list[dict] = []          # In-memory ORCA fallback
 _dedup_store: dict[str, float] = {}    # key → expiry timestamp
 _escalation_spend_today: float = 0.0
 _escalation_day: str = ""
@@ -81,18 +81,18 @@ def get_config() -> dict:
     return _config
 
 
-# ── Chronogram writes (durable, cross-agent) ────────────────────────────
+# ── ORCA writes (durable, cross-agent) ────────────────────────────
 
-def _write_chronogram(namespace: str, record: dict) -> dict:
-    """Write an event record to the shared Chronogram memory layer.
+def _write_orca(namespace: str, record: dict) -> dict:
+    """Write an event record to the shared ORCA memory layer.
 
-    Primary path: repose.utils.chronogram.store_artifact() — a real HTTP
-    write to the cross-agent Chronogram memory-api (host + API key resolved
+    Primary path: repose.utils.orca.store_artifact() — a real HTTP
+    write to the cross-agent ORCA memory-api (host + API key resolved
     via Bitwarden in that module; nothing hardcoded here). This is what makes
     event_monitor's records visible to other agents instead of dying in a
     per-process buffer.
 
-    Fallback path: if Chronogram is unreachable (transport error, Bitwarden
+    Fallback path: if ORCA is unreachable (transport error, Bitwarden
     down, config missing), the record is appended to the in-memory
     ``_event_store`` so webhook ingest never blocks. The in-memory list is a
     last-resort buffer ONLY — it is never the primary durability path.
@@ -104,7 +104,7 @@ def _write_chronogram(namespace: str, record: dict) -> dict:
         **record,
     }
     try:
-        from repose.utils.chronogram import store_artifact
+        from repose.utils.orca import store_artifact
         store_artifact(
             namespace=namespace,
             content=json.dumps(entry, default=str),
@@ -116,14 +116,14 @@ def _write_chronogram(namespace: str, record: dict) -> dict:
                 "event_source": record.get("source"),
             },
         )
-        logger.info("Chronogram [%s] wrote event %s", namespace, record.get("event_id", "?"))
+        logger.info("ORCA [%s] wrote event %s", namespace, record.get("event_id", "?"))
     except Exception as exc:
-        # Chronogram unreachable — degrade to the in-memory buffer so ingest
+        # ORCA unreachable — degrade to the in-memory buffer so ingest
         # is never lost, but surface the failure loudly. This is the fallback,
         # not the primary path.
         _event_store.append(entry)
         logger.warning(
-            "Chronogram [%s] write failed for event %s; using in-memory fallback: %s",
+            "ORCA [%s] write failed for event %s; using in-memory fallback: %s",
             namespace, record.get("event_id", "?"), exc,
         )
     return entry
@@ -594,7 +594,7 @@ def process_event(
 
     if not sig_ok:
         _stats["events_signature_failed"] += 1
-        _write_chronogram(
+        _write_orca(
             cfg.get("chronogram", {}).get("system_events_namespace", "system-events"),
             {
                 "event_id": str(uuid.uuid4()),
@@ -676,13 +676,13 @@ def process_event(
         "signature_verified": True,
     }
 
-    # ── 5. Route to Chronogram namespace ────────────────────────────────
+    # ── 5. Route to ORCA namespace ────────────────────────────────
     chronogram_cfg = cfg.get("chronogram", {})
     if lane in ("urgent", "informational", "routine"):
         namespace = chronogram_cfg.get("events_namespace", "event_monitor-events")
     else:
         namespace = chronogram_cfg.get("decision_namespace", "decision-queue")
-    # NOTE (RPOSE-FIND7): the Chronogram write is deferred until AFTER the
+    # NOTE (RPOSE-FIND7): the ORCA write is deferred until AFTER the
     # surfacing attempt below, so the persisted record reflects the true
     # delivery state (surfaced_to_telegram / surfaced_at). Writing here — before
     # the Telegram send — would durably record surfaced_to_telegram=False even
@@ -733,7 +733,7 @@ def process_event(
     # outcome of the send attempt (RPOSE-FIND7). Surfacing is wrapped in a
     # non-blocking try/except above, so this write is always reached and the
     # event is never lost.
-    _write_chronogram(namespace, record)
+    _write_orca(namespace, record)
     return record
 
 

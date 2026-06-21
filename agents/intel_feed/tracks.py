@@ -1,6 +1,6 @@
 """Active tracks context vector generation for Intel_feed Lite.
 
-Generates short context strings from Chronogram business-state that
+Generates short context strings from ORCA business-state that
 inform LLM scoring. Tracks regenerate once per scan (cache_per_scan).
 """
 
@@ -15,10 +15,10 @@ _cache_scan_id: str | None = None
 
 
 def generate_active_tracks() -> list[str]:
-    """Generate active tracks from Chronogram business-state.
+    """Generate active tracks from ORCA business-state.
 
     For MVP, returns a default set of tracks derived from config query.
-    In production, this queries Chronogram for active projects, blockers,
+    In production, this queries ORCA for active projects, blockers,
     and current focus areas.
 
     Returns:
@@ -29,7 +29,7 @@ def generate_active_tracks() -> list[str]:
     max_records = tracks_config.get("max_records", 10)
 
     # For MVP: return sensible defaults representing core focus areas
-    # In production, these would come from Chronogram business-state
+    # In production, these would come from ORCA business-state
     default_tracks = [
         "Multi-agent system architecture and orchestration",
         "LLM safety, alignment, and evaluation",

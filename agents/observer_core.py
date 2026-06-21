@@ -8,8 +8,8 @@ Three monitoring subsystems:
 
 Read-only enforcement at three layers:
   Layer 1 — Credential scope
-  Layer 2 — Code assertion on every Chronogram call
-  Layer 3 — Chronogram ACL
+  Layer 2 — Code assertion on every ORCA call
+  Layer 3 — ORCA ACL
 
 Observer writes ONLY to observer-observations and system-events.
 """
@@ -40,7 +40,7 @@ FORBIDDEN_NARRATIVE_TERMS = {"EJ", "you", "user", "operator"}
 # Severity emoji mapping for Telegram
 SEVERITY_EMOJI = {"critical": "\u274c", "warning": "\u26a0\ufe0f", "info": "\u2139\ufe0f"}
 
-# Allowed Chronogram read operations
+# Allowed ORCA read operations
 ALLOWED_OPERATIONS = {"read", "list", "get", "aggregate"}
 
 # Operations unlocked when Observer leaves its cold-start read-only window. Added
@@ -108,10 +108,10 @@ def get_config() -> dict:
 # Read-Only Enforcement — Layer 2: Code Assertion
 # ---------------------------------------------------------------------------
 def _assert_read_only(operation: str, caller: str = "") -> None:
-    """Assert that a Chronogram operation is read-only.
+    """Assert that a ORCA operation is read-only.
 
     This is Layer 2 of the three-layer read-only enforcement.
-    Every Chronogram read call in Observer must be wrapped in this assertion.
+    Every ORCA read call in Observer must be wrapped in this assertion.
 
     If the assertion fails, the operation is aborted and a critical
     system_event is logged.
@@ -280,11 +280,11 @@ def log_system_event(
 ) -> dict:
     """Log a system event to the in-memory event store.
 
-    In production this writes to Chronogram (Redis db=0).
+    In production this writes to ORCA (Redis db=0).
     In the sandbox, uses in-memory store.
-    Also writes to shared chronogram module for cross-agent visibility.
+    Also writes to shared orca module for cross-agent visibility.
     """
-    from repose.utils.chronogram import log_system_event as chronogram_log
+    from repose.utils.orca import log_system_event as orca_log
 
     event = {
         "event_id": str(uuid.uuid4()),
@@ -302,8 +302,8 @@ def log_system_event(
 
     _event_store.append(event)
 
-    # Also write to shared chronogram
-    chronogram_log(
+    # Also write to shared orca
+    orca_log(
         namespace=namespace,
         agent=agent,
         message_preview=message_preview[:100],
@@ -590,11 +590,11 @@ def check_execution_health() -> list[dict]:
 
 
 def _count_namespace_records(namespace: str) -> int:
-    """Count records in a namespace (stub — in production reads Chronogram)."""
+    """Count records in a namespace (stub — in production reads ORCA)."""
     _assert_read_only("read", "_count_namespace_records")
-    # In production, this queries Chronogram/Redis
+    # In production, this queries ORCA/Redis
     # In sandbox, count observations and events in that namespace
-    from repose.utils.chronogram import get_recent_events
+    from repose.utils.orca import get_recent_events
     events = get_recent_events(namespace=namespace)
     return len(events)
 
@@ -602,7 +602,7 @@ def _count_namespace_records(namespace: str) -> int:
 def _get_last_write_age(namespace: str) -> Optional[timedelta]:
     """Get age of last write to a namespace."""
     _assert_read_only("read", "_get_last_write_age")
-    from repose.utils.chronogram import get_recent_events
+    from repose.utils.orca import get_recent_events
     events = get_recent_events(namespace=namespace, limit=1)
     if not events:
         return None
@@ -614,7 +614,7 @@ def _get_last_write_age(namespace: str) -> Optional[timedelta]:
 def _get_agent_error_rate(agent_name: str) -> float:
     """Get error rate per hour for an agent from system-events."""
     _assert_read_only("read", "_get_agent_error_rate")
-    from repose.utils.chronogram import get_recent_events
+    from repose.utils.orca import get_recent_events
     events = get_recent_events(namespace="system-events", agent=agent_name)
     if not events:
         return 0.0
@@ -900,7 +900,7 @@ def _is_in_warmup(agent_name: str, grace_days: int) -> bool:
 def _compute_baseline_rate(namespace: str, window_days: int) -> float:
     """Compute baseline daily write rate for a namespace."""
     _assert_read_only("aggregate", "_compute_baseline_rate")
-    from repose.utils.chronogram import get_recent_events
+    from repose.utils.orca import get_recent_events
     events = get_recent_events(namespace=namespace)
     if not events:
         return 0.0
@@ -918,7 +918,7 @@ def _compute_baseline_rate(namespace: str, window_days: int) -> float:
 def _compute_rolling_rate(namespace: str, window_days: int) -> float:
     """Compute recent rolling daily write rate for a namespace."""
     _assert_read_only("aggregate", "_compute_rolling_rate")
-    from repose.utils.chronogram import get_recent_events
+    from repose.utils.orca import get_recent_events
     events = get_recent_events(namespace=namespace)
     if not events:
         return 0.0
@@ -1262,7 +1262,7 @@ def test_subsystem(subsystem: str) -> dict:
 def admin_credentials_setup() -> dict:
     """Set up all four read-only credentials.
 
-    Steps for each service (Chronogram, Temporal, Arize Phoenix, LiteLLM):
+    Steps for each service (ORCA, Temporal, Arize Phoenix, LiteLLM):
     1. Detect if service is installed
     2. Create read-only role/token
     3. Verify: write attempt must fail, read attempt must succeed

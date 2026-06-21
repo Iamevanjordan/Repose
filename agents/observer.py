@@ -6,7 +6,7 @@ Three monitoring subsystems:
   2. substrate_health — infrastructure component reachability
   3. quality_drift — statistical anomaly detection in output rates
 
-Read-only enforced at three layers: credential scope, code assertion, Chronogram ACL.
+Read-only enforced at three layers: credential scope, code assertion, ORCA ACL.
 Observer writes ONLY to observer-observations and system-events namespaces.
 
 All operator-editable values in config/observer.yaml. Nothing hardcoded.
@@ -33,7 +33,7 @@ VALID_READ_OPS = frozenset({"read", "list", "get", "aggregate", "query", "search
 
 
 def _assert_read_only(operation: str) -> None:
-    """Layer 2 — Code assertion: every Chronogram call must be read-only.
+    """Layer 2 — Code assertion: every ORCA call must be read-only.
 
     If this assertion fails, the operation is aborted and logged as a
     system_event with severity: critical.
@@ -100,14 +100,14 @@ def _record_system_event(
     return event
 
 
-def _read_chronogram(namespace: str, operation: str, query: dict | None = None) -> list[dict]:
-    """Read from Chronogram namespace with read-only assertion.
+def _read_orca(namespace: str, operation: str, query: dict | None = None) -> list[dict]:
+    """Read from ORCA namespace with read-only assertion.
 
     This is the canonical read path for all Observer subsystems.
     Layer 2 code assertion enforced on every call.
 
     Args:
-        namespace: Chronogram namespace to read from.
+        namespace: ORCA namespace to read from.
         operation: Operation type (must be in VALID_READ_OPS).
         query: Optional filter dict (agent, since_ts, limit, etc.).
 
@@ -123,7 +123,7 @@ def _read_chronogram(namespace: str, operation: str, query: dict | None = None) 
         logger.warning("Namespace '%s' not in Observer allow-list", namespace)
         return []
 
-    # In production this calls Chronogram Redis API.
+    # In production this calls ORCA Redis API.
     # In this build, we use in-memory stores keyed by namespace.
     if namespace == _observation_namespace():
         store = _observations_store
@@ -187,7 +187,7 @@ def _namespace_read(namespace: str, query: dict) -> list[dict]:
 
 
 def _agent_namespace_map() -> dict[str, str]:
-    """Map agent names to their Chronogram namespaces from config."""
+    """Map agent names to their ORCA namespaces from config."""
     cfg = _load_observer_config()
     agents = cfg.get("execution_health", {}).get("observed_agents", {})
     return {name: a["namespace"] for name, a in agents.items()}
@@ -297,7 +297,7 @@ def _save_observer_config(cfg: dict) -> None:
 def setup_credentials() -> dict:
     """Create all four read-only tokens via repose observer admin credentials setup.
 
-    For each service (Chronogram, Temporal, Arize Phoenix, LiteLLM):
+    For each service (ORCA, Temporal, Arize Phoenix, LiteLLM):
       1. Detects if service is installed
       2. Creates read-only role/token via service API
       3. Verifies: write attempt must fail, read must succeed
@@ -309,7 +309,7 @@ def setup_credentials() -> dict:
     """
     results = {}
 
-    # Chronogram
+    # ORCA
     results["chronogram"] = _setup_chronogram_credentials()
 
     # Temporal
@@ -331,7 +331,7 @@ def setup_credentials() -> dict:
 
 
 def _setup_chronogram_credentials() -> dict:
-    """Create Chronogram read-only credential."""
+    """Create ORCA read-only credential."""
     secret_id = "observer-chronogram-read-token"
     result = {
         "service": "chronogram",
@@ -350,7 +350,7 @@ def _setup_chronogram_credentials() -> dict:
             # HARD FAIL: never fall back to an os.environ-stored credential. A
             # self-generated token sitting in the process environment is worse
             # than no observer at all — abort credential setup instead.
-            logger.error("Chronogram read-token store to Bitwarden failed: %s", exc)
+            logger.error("ORCA read-token store to Bitwarden failed: %s", exc)
             raise
 
         # Verify: write attempt must fail (in this build, write is controlled by code assertion)
@@ -377,7 +377,7 @@ def _setup_chronogram_credentials() -> dict:
     except Exception as e:
         result["status"] = f"failed: {e}"
         _record_system_event("warning", "credential_setup_failed",
-                             f"Chronogram credential setup failed: {e}")
+                             f"ORCA credential setup failed: {e}")
 
     return result
 

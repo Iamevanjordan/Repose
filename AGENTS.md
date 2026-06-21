@@ -18,7 +18,7 @@ Telegram. It is **two-runtime** by design:
   `event_monitor`, `observer`) running inside the workspace container via
   `docker exec`, importing the `repose` package.
 
-Both runtimes share the same backing services (Chronogram memory API, LiteLLM
+Both runtimes share the same backing services (ORCA memory API, LiteLLM
 gateway, Redis, Bitwarden, Telegram).
 
 ## 2. Runtime Model
@@ -41,8 +41,13 @@ gateway, Redis, Bitwarden, Telegram).
   `feedparser>=6.0`, `httpx`, `temporalio`.
 - **LiteLLM gateway** (OpenAI-compatible HTTP) for all model calls — no model
   SDKs in-tree; calls are plain HTTP with a Bitwarden-resolved key.
-- **Chronogram memory API** — durable agent memory (`/v1/memories/ingest`,
-  `/v1/memories/recall`), namespaced per agent.
+- **ORCA memory API** — durable agent memory (`/v1/memories/ingest`,
+  `/v1/memories/recall`), namespaced per agent. ORCA is the memory layer's name,
+  after **Eddie's ORCA project**. Some deployed/wire-level identifiers
+  (the `chronogram.http` config-key namespace, the memory-api service hostname,
+  and the external `src.chronogram` client package) retain the prior
+  `chronogram` name by design — they are infrastructure names, not the layer's
+  cosmetic name.
 - **Redis** — coordination + dedup state (resolved from Bitwarden, never
   localhost/env).
 - **Telegram** — operator surfacing.
@@ -62,7 +67,7 @@ gateway, Redis, Bitwarden, Telegram).
 Internal workflow / schedule IDs in the operator's runtime may carry codenames
 rather than these role names (see §7); that is expected and not reconciled here.
 
-## 5. Chronogram Namespace Map (real writes)
+## 5. ORCA Namespace Map (real writes)
 
 - `intel_feed-archive` — scored/surfaced intel signals (`intel_feed`).
 - `event_monitor-events` — classified webhook events; `decision-queue` —
@@ -106,7 +111,7 @@ enforcement, `event_monitor` Redis dedup, and the systemd orphan guard are all
 resolved and verified.
 
 Forward-looking notes (not regressions):
-- **Idempotency keys** are emitted as `Idempotency-Key` headers on Chronogram
+- **Idempotency keys** are emitted as `Idempotency-Key` headers on ORCA
   writes and Telegram sends. Effective dedup-on-retry requires the
   ingest endpoint / a Telegram-fronting router to honor the header; until then
   the header is inert but harmless. **(partially verified — header emitted;
@@ -119,7 +124,7 @@ Forward-looking notes (not regressions):
 **Flag:**
 - Any credential/host/path read outside the Bitwarden pattern (env reads,
   hardcoded hosts, literal secrets).
-- Workflow activities whose Chronogram writes / Telegram sends are
+- Workflow activities whose ORCA writes / Telegram sends are
   non-idempotent on Temporal retry.
 - Fetch/ingest paths that bypass the egress allowlist, or sanitization paths
   that strip-but-don't-block on `block_patterns`.

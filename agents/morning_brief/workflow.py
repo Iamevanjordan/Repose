@@ -184,7 +184,7 @@ async def write_brief_to_chronogram(
                 "decisions_count": len(ctx_dict.get("open_decisions", [])),
             },
         }
-        # RPOSE-005: deterministic idempotency_key for Chronogram dedup on retry.
+        # RPOSE-005: deterministic idempotency_key for ORCA dedup on retry.
         result = client.remember(
             namespace="morning_brief-briefs",
             content=json.dumps(entry),

@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from repose.utils import chronogram
+from repose.utils import orca
 from repose.utils.telegram_router import (
     AGENT_RATE_LIMITS,
     route_message,
@@ -31,12 +31,12 @@ def setup_teardown():
     reset_rate_limits()
     reset_credentials()
     _set_telegram_config_override(_TEST_TELEGRAM_CONFIG)
-    chronogram.clear_events()
+    orca.clear_events()
     yield
     _clear_telegram_config_override()
     reset_rate_limits()
     reset_credentials()
-    chronogram.clear_events()
+    orca.clear_events()
 
 
 # Test 1: Routes critical messages to critical channel
@@ -84,9 +84,9 @@ def test_bypasses_rate_limit_for_critical():
         assert result["rate_limited"] is False
 
 
-# Test 5: Logs rate-limited messages to Chronogram
-def test_logs_rate_limited_to_chronogram():
-    chronogram.clear_events()
+# Test 5: Logs rate-limited messages to ORCA
+def test_logs_rate_limited_to_orca():
+    orca.clear_events()
     with mock.patch("repose.utils.telegram_router._send_telegram_message", return_value=(True, "")):
         observer_limit = AGENT_RATE_LIMITS["observer"]["per_minute"]
         for i in range(observer_limit):
@@ -94,7 +94,7 @@ def test_logs_rate_limited_to_chronogram():
         result = route_message(agent="observer", message="Should be rate-limited and logged", priority="informational")
         assert result["sent"] is False
         assert result["rate_limited"] is True
-    events = chronogram.get_recent_events(namespace="system-events", agent="observer")
+    events = orca.get_recent_events(namespace="system-events", agent="observer")
     rate_limited_events = [e for e in events if e.get("rate_limited")]
     assert len(rate_limited_events) >= 1
     assert rate_limited_events[0]["agent"] == "observer"
@@ -108,7 +108,7 @@ def test_does_not_raise_on_telegram_failure():
     assert result["sent"] is False
     assert result["rate_limited"] is False
     assert "Telegram API failure" in result["reason"]
-    events = chronogram.get_recent_events(namespace="system-events")
+    events = orca.get_recent_events(namespace="system-events")
     error_events = [e for e in events if e.get("error")]
     assert len(error_events) >= 1
 

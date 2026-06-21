@@ -26,7 +26,7 @@ async def write_handoff_to_chronogram(record_dict: dict, idempotency_key: str = 
     import sys; sys.path.insert(0, "/opt/agent-os")
     from src.chronogram.client import get_client
     client = get_client()
-    # RPOSE-005: deterministic idempotency_key lets Chronogram dedup this
+    # RPOSE-005: deterministic idempotency_key lets ORCA dedup this
     # non-idempotent write on Temporal retry.
     result = client.remember(
         namespace="session-handoffs",
@@ -57,7 +57,7 @@ async def write_business_state_delta(record_dict: dict, idempotency_key: str = "
         parts.append("Blockers: " + "; ".join(b["item"] for b in blockers))
     if debt:
         parts.append("Debt: " + "; ".join(debt))
-    # RPOSE-005: deterministic idempotency_key for Chronogram dedup on retry.
+    # RPOSE-005: deterministic idempotency_key for ORCA dedup on retry.
     result = client.remember(
         namespace="business-state",
         content="\n".join(parts),

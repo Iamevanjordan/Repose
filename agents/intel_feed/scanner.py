@@ -6,7 +6,7 @@ Orchestrates a full scan cycle:
   llm_score(haiku) → [escalate to sonnet if confidence < 0.6] →
   novelty_score(voyage-3) →
   all_gates_eval →
-  write_to_chronogram(intel_feed-archive) →
+  write_to_orca(intel_feed-archive) →
   [if all_gates_passed] telegram_router.route_message(priority="informational")
 """
 
@@ -39,7 +39,7 @@ from repose.agents.intel_feed.archiver import (
     get_archive_records,
     count_archive_records,
 )
-from repose.utils.chronogram import log_system_event
+from repose.utils.orca import log_system_event
 
 logger = logging.getLogger(__name__)
 

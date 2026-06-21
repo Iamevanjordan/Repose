@@ -3,7 +3,7 @@ Session_handoffTelegramHandoffWorkflow — triggered by Telegram ingest.
 1. Receives session handoff dict from operator's Telegram message
 2. Pulls Koda git activity (last 24h commits from /opt/agent-os)
 3. Merges into clean business-state record
-4. Writes to Chronogram business-state + session-handoffs namespaces
+4. Writes to ORCA business-state + session-handoffs namespaces
 5. Sends Axis primer back via Telegram
 """
 from __future__ import annotations
@@ -55,7 +55,7 @@ async def write_telegram_handoff(
     handoff_data: dict, git_commits: list[dict], idempotency_key: str = ""
 ) -> dict:
     """
-    Write the handoff to Chronogram business-state and session-handoffs.
+    Write the handoff to ORCA business-state and session-handoffs.
     Returns {business_state_id, handoff_id}.
     """
     import sys; sys.path.insert(0, "/opt/agent-os")
@@ -79,7 +79,7 @@ async def write_telegram_handoff(
     )
 
     # RPOSE-005: each write gets a distinct deterministic idempotency_key so
-    # Chronogram can dedup them on Temporal retry.
+    # ORCA can dedup them on Temporal retry.
     # Write to business-state
     biz_result = client.remember(
         namespace="business-state",
@@ -141,7 +141,7 @@ async def send_handoff_primer(
 
     primer = (
         f"SESSION_HANDOFF // {now}\n\n"
-        f"Session handoff received + written to Chronogram.\n"
+        f"Session handoff received + written to ORCA.\n"
         f"Record: {biz_id}\n"
         f"{git_lines}\n\n"
         f"---\n"
@@ -187,7 +187,7 @@ class Session_handoffTelegramHandoffWorkflow:
             retry_policy=RetryPolicy(maximum_attempts=1),
         )
 
-        # Write to Chronogram
+        # Write to ORCA
         record_ids: dict = await workflow.execute_activity(
             write_telegram_handoff,
             args=[handoff_data, git_commits, f"{base}-write_telegram_handoff"],

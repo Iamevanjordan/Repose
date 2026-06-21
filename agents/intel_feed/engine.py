@@ -23,7 +23,7 @@ from repose.agents.intel_feed.scoring import (
     is_warmup_active, get_warmup_max_surfaces, reset_warmup,
     _add_to_archive_cache, _archive_cache,
 )
-from repose.utils.chronogram import log_system_event
+from repose.utils.orca import log_system_event
 from repose.utils.telegram_router import route_message
 
 logger = logging.getLogger(__name__)
@@ -51,12 +51,12 @@ except Exception:
 def _archive_signal(signal: dict):
     """Persist a scored signal.
 
-    Durable cross-agent persistence goes to the shared Chronogram
+    Durable cross-agent persistence goes to the shared ORCA
     (intel_feed-archive namespace) as the PRIMARY path so other agents can
     recall surfaced signals. The in-memory ``_archive_records`` list and the
     scoring novelty cache are kept for fast in-process reads (observations,
     novelty scoring). Local JSONL is now a FALLBACK only — written solely when
-    Chronogram is unreachable, so per-process restarts still have something to
+    ORCA is unreachable, so per-process restarts still have something to
     rebuild from for debugging."""
     global _archive_records
     _archive_records.append(signal)
@@ -66,7 +66,7 @@ def _archive_signal(signal: dict):
         get_intel_feed_config().get("chronogram", {}).get("archive_namespace", "intel_feed-archive")
     )
     try:
-        from repose.utils.chronogram import store_artifact
+        from repose.utils.orca import store_artifact
         store_artifact(
             namespace=namespace,
             content=json.dumps(signal, default=str),
@@ -80,9 +80,9 @@ def _archive_signal(signal: dict):
             },
         )
     except Exception as exc:
-        # Chronogram unreachable — fall back to local JSONL for durability.
+        # ORCA unreachable — fall back to local JSONL for durability.
         logger.warning(
-            "Chronogram archive write failed for signal %s; local JSONL fallback: %s",
+            "ORCA archive write failed for signal %s; local JSONL fallback: %s",
             signal.get("signal_id", "?"), exc,
         )
         try:

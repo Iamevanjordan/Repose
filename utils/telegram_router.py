@@ -19,7 +19,7 @@ import urllib.request
 import urllib.error
 
 from repose.utils.bitwarden import get_secret
-from repose.utils.chronogram import log_system_event
+from repose.utils.orca import log_system_event
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +40,13 @@ VALID_PRIORITIES = {"critical", "informational"}
 # Redis-backed rate limiting (RPOSE-010)
 # ---------------------------------------------------------------------------
 # Rate-limit counters live in Redis so all workers share one count. An in-memory
-# bucket per worker undercounts and can amplify Chronogram writes during alert
+# bucket per worker undercounts and can amplify ORCA writes during alert
 # storms. Redis unreachable => raise (fail closed).
 
 
 def _rate_redis():
     # Rate-limit counters live on their own Redis db (config: rate_limit.redis_db,
-    # default 4) so they stay isolated from Chronogram's db. Reading it from
+    # default 4) so they stay isolated from ORCA's db. Reading it from
     # config — rather than hardcoding db 0 — keeps the limiter pointed at the
     # same db the rest of the system reserves for rate limiting (RPOSE-FIND9).
     from repose.utils.redis_state import get_redis
