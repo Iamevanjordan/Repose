@@ -682,7 +682,11 @@ def process_event(
         namespace = chronogram_cfg.get("events_namespace", "event_monitor-events")
     else:
         namespace = chronogram_cfg.get("decision_namespace", "decision-queue")
-    _write_chronogram(namespace, record)
+    # NOTE (RPOSE-FIND7): the Chronogram write is deferred until AFTER the
+    # surfacing attempt below, so the persisted record reflects the true
+    # delivery state (surfaced_to_telegram / surfaced_at). Writing here — before
+    # the Telegram send — would durably record surfaced_to_telegram=False even
+    # when delivery later succeeded, mismatching the returned record.
 
     # ── 6. Telegram surfacing ──────────────────────────────────────────
     telegram_cfg = cfg.get("telegram", {})
@@ -725,6 +729,11 @@ def process_event(
             logger.warning("Telegram surfacing failed (non-blocking): %s", exc)
 
     record["status"] = "processed"
+    # Persist now that surfaced_to_telegram / surfaced_at reflect the real
+    # outcome of the send attempt (RPOSE-FIND7). Surfacing is wrapped in a
+    # non-blocking try/except above, so this write is always reached and the
+    # event is never lost.
+    _write_chronogram(namespace, record)
     return record
 
 

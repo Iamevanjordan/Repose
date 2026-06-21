@@ -230,16 +230,18 @@ def run_scan() -> dict:
         if should_surface and surfaced_count >= max_surfaces:
             should_surface = False
 
-        # Build signal
+        # Build signal — surfaced starts False and is only set True after a
+        # CONFIRMED Telegram send (RPOSE-FIND7). Archiving is deferred until
+        # after the send attempt so the persisted record never claims a delivery
+        # that did not actually happen.
         signal = _build_external_signal(
             item, source, sanitized, gates_result, active_tracks,
-            warmup_active, should_surface,
+            warmup_active, surfaced=False,
         )
         scanned_signals.append(signal)
-        _archive_signal(signal)
         _total_scored += 1
 
-        # Surface if passed
+        # Surface if gates passed — mark surfaced only on confirmed send success.
         if should_surface:
             try:
                 msg = _build_telegram_message(signal, source)
@@ -248,11 +250,21 @@ def run_scan() -> dict:
                     message=msg,
                     priority="informational",
                 )
-                surfaced_count += 1
-                logger.info("Surfaced: %s (sent=%s)", signal["title"][:60],
-                           route_result.get("sent"))
+                if route_result.get("sent"):
+                    signal["surfaced"] = True
+                    signal["surfaced_at"] = datetime.now(timezone.utc).isoformat()
+                    surfaced_count += 1
+                    logger.info("Surfaced: %s (sent=True)", signal["title"][:60])
+                else:
+                    logger.warning(
+                        "Surface not delivered: %s (reason=%s)",
+                        signal["title"][:60], route_result.get("reason"),
+                    )
             except Exception as exc:
                 logger.error("Failed to surface: %s", exc)
+
+        # Archive once, with the now-accurate surfaced state.
+        _archive_signal(signal)
 
     # Cost estimate
     total_cost = _estimate_cost(len(scanned_signals), "heuristic")
