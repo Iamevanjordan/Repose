@@ -17,8 +17,26 @@ dependencies = [
 [project.scripts]
 repose = "repose.cli:main"
 
-[tool.setuptools.packages.find]
-include = ["repose*"]
+# Flat layout: the repository root itself is the importable `repose` package
+# (root __init__.py, all code imported as `repose.*`). There is no `repose/`
+# subdirectory, so the old auto-discovery pattern `include = ["repose*"]`
+# matched nothing and `pip install -e .` produced an empty, unimportable
+# install (RPOSE-FIND10). Map the `repose` package to the root and list its
+# subpackages explicitly — automatic find() does not apply the package-dir
+# root remap, so an explicit list is the deterministic fix.
+[tool.setuptools]
+package-dir = {"repose" = "."}
+packages = [
+    "repose",
+    "repose.agents",
+    "repose.agents.intel_feed",
+    "repose.agents.morning_brief",
+    "repose.agents.session_handoff",
+    "repose.cli",
+    "repose.config",
+    "repose.utils",
+    "repose.utils.tests",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["utils"]
