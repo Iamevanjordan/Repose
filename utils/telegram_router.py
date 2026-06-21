@@ -45,8 +45,14 @@ VALID_PRIORITIES = {"critical", "informational"}
 
 
 def _rate_redis():
+    # Rate-limit counters live on their own Redis db (config: rate_limit.redis_db,
+    # default 4) so they stay isolated from Chronogram's db. Reading it from
+    # config — rather than hardcoding db 0 — keeps the limiter pointed at the
+    # same db the rest of the system reserves for rate limiting (RPOSE-FIND9).
     from repose.utils.redis_state import get_redis
-    return get_redis(0)
+    from repose.config import repose_config
+    db = repose_config.get("rate_limit", {}).get("redis_db", 4)
+    return get_redis(db)
 
 # ---------------------------------------------------------------------------
 # Telegram credentials (loaded lazily)
