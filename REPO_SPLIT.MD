@@ -6,13 +6,13 @@ Repose maintains two intentionally divergent git histories. This is by design.
 
 **Private tree** (VPS: `/opt/hermes-workspace/workspace-home/repose/`)
 - Agent codenames: Hermes, Helios, Hëktr, Libra, Pulse, Watson
-- 1 root commit. HEAD: 0603946
+- 1 root commit. HEAD: d2393cf
 - Live operational system. Never pushed publicly.
 - Source of truth for runtime behavior.
 
 **Public tree** (GitHub: `Iamevanjordan/Repose`, staging: `~/repose-public-staging`)
 - Role-based names: morning_brief, intel_feed, event_monitor, session_handoff, observer
-- 2 commits. HEAD: 6d18510
+- 14 commits. HEAD: eda371d
 - Sanitized for open source. No real IPs, tokens, usernames, or absolute paths.
 - Source of truth for Codex review, documentation, and external readers.
 
