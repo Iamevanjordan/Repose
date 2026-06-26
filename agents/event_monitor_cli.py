@@ -200,8 +200,8 @@ class Event_monitorCLI(CLIBase):
                 except ValueError:
                     pass
 
-        from repose.agents.event_monitor import get_events
-        return get_events(lane=lane, source=source, last_hours=last_hours)
+        from repose.agents.event_monitor import list_events
+        return list_events(lane=lane, source=source, last_hours=last_hours)
 
     # ──── Status ─────────────────────────────────────────────────────
 

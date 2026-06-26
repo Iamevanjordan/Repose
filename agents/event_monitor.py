@@ -203,6 +203,10 @@ def _clear_dedup() -> None:
 
 # ── Signature Verification ──────────────────────────────────────────────
 
+# Stripe webhook replay tolerance (seconds). Matches Stripe SDK default.
+STRIPE_TIMESTAMP_TOLERANCE_SECONDS = 300
+
+
 def verify_stripe_signature(payload: bytes, signature_header: str, secret: str) -> bool:
     """Verify Stripe webhook signature (HMAC-SHA256)."""
     if not secret:
@@ -220,7 +224,22 @@ def verify_stripe_signature(payload: bytes, signature_header: str, secret: str) 
         expected_sig = parts.get("v1", "")
         signed_payload = f"{timestamp}.{payload.decode('utf-8')}".encode()
         computed = hmac.new(secret.encode(), signed_payload, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(computed, expected_sig)
+        if not hmac.compare_digest(computed, expected_sig):
+            return False
+        # Replay protection: reject events whose signed timestamp falls outside
+        # the tolerance window, even when the HMAC is valid.
+        try:
+            event_ts = int(timestamp)
+        except (TypeError, ValueError):
+            logger.warning("Stripe webhook missing/invalid timestamp -- rejecting")
+            return False
+        if abs(time.time() - event_ts) > STRIPE_TIMESTAMP_TOLERANCE_SECONDS:
+            logger.warning(
+                "Stripe webhook timestamp outside %ss tolerance -- possible replay, rejecting",
+                STRIPE_TIMESTAMP_TOLERANCE_SECONDS,
+            )
+            return False
+        return True
     except Exception as exc:
         logger.error("Stripe signature verification error: %s", exc)
         return False

@@ -16,7 +16,6 @@ Observer writes ONLY to observer-observations and system-events.
 
 import json
 import logging
-import os
 import re
 import time
 import uuid
@@ -71,7 +70,7 @@ def load_config(path: Optional[str] = None) -> dict:
     if _config_loaded and _config:
         return _config
 
-    config_path = path or os.environ.get("OBSERVER_CONFIG_PATH", DEFAULT_CONFIG_PATH)
+    config_path = path or DEFAULT_CONFIG_PATH
     try:
         import yaml
         with open(config_path) as fh:

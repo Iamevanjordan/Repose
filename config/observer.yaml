@@ -1,8 +1,15 @@
 agent: observer
 version: '1.0'
-# Date (UTC) on which Observer's cold-start read-only lock is lifted. On/after
-# this date, check_and_apply_write_mode_transition() unlocks write operations
-# at startup. Before it, Observer stays strictly read-only.
+# Observer cold-start window end (UTC). Observer is NOT silent during cold-start:
+# observations and system-events are written to durable memory normally the
+# whole time -- write_observation / log_system_event are never gated by this
+# setting, so nothing here blocks Observer from recording. What cold-start
+# withholds is operator-facing delivery: warmup observations accumulate in
+# memory but are not surfaced to Telegram until each agent clears its warmup
+# grace window (see quality_drift.global_cold_start_grace_days /
+# per_agent_cold_start_grace below). On/after this date,
+# check_and_apply_write_mode_transition() additionally lifts the ORCA
+# mutating-operation capability lock at startup.
 write_mode_activation_date: '2026-07-02'
 observation_sources:
   chronogram_read_namespaces:

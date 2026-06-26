@@ -62,7 +62,7 @@ gateway, Redis, Bitwarden, Telegram).
 | **session_handoff** | `session_handoff/bot_listener` → Temporal handoff workflow | Telegram handoff message → workflow | `session-handoffs`, `business-state` | live |
 | **intel_feed** | `python -m repose.agents.intel_feed_scheduler` | **3×/day** at 06:00 / 13:00 / 20:00 UTC | `intel_feed-archive`, `system-events` | live |
 | **event_monitor** | `python -m repose.agents.event_monitor` | webhook-driven (cloudflared → :8080) | `event_monitor-events`, `decision-queue`, `system-events` | live |
-| **observer** | `python -m repose.agents.observer_observer` (`observer_core`) | periodic observer cycle | `observer-observations`, `system-events` | **read-only cold-start** until `write_mode_activation_date: 2026-07-02`; surfacing disabled |
+| **observer** | `python -m repose.agents.observer_observer` (`observer_core`) | periodic observer cycle | `observer-observations`, `system-events` | live; **cold-start warmup** — durable writes proceed normally; only Telegram surfacing is withheld until each agent clears its warmup grace. The separate ORCA write-mode capability lock lifts `write_mode_activation_date: 2026-07-02` |
 
 Internal workflow / schedule IDs in the operator's runtime may carry codenames
 rather than these role names (see §7); that is expected and not reconciled here.
@@ -75,7 +75,8 @@ rather than these role names (see §7); that is expected and not reconciled here
 - `morning_brief-briefs` — delivered morning briefs + delivery receipts.
 - `session-handoffs` — session wrap/handoff records; `business-state` —
   business-state deltas (`session_handoff`).
-- `observer-observations` — observer findings (writes gated by cold-start).
+- `observer-observations` — observer findings (durable writes proceed during
+  cold-start; only Telegram surfacing is withheld during warmup grace).
 - `system-events` — shared operational/audit events (sanitization strips/blocks,
   failures) across agents.
 
@@ -116,8 +117,10 @@ Forward-looking notes (not regressions):
   ingest endpoint / a Telegram-fronting router to honor the header; until then
   the header is inert but harmless. **(partially verified — header emitted;
   server-side dedup unverified)**
-- **observer** remains in its read-only cold-start window; write-mode behavior
-  activates `2026-07-02` and has not been exercised. **(unverified)**
+- **observer** is in its cold-start warmup window: it writes observations to
+  durable memory normally, but withholds Telegram surfacing until each agent
+  clears its warmup grace. The separate ORCA write-mode capability lock lifts
+  `2026-07-02` and has not been exercised. **(unverified)**
 
 ## 9. Review Scope (for Codex)
 
@@ -128,9 +131,16 @@ Forward-looking notes (not regressions):
   non-idempotent on Temporal retry.
 - Fetch/ingest paths that bypass the egress allowlist, or sanitization paths
   that strip-but-don't-block on `block_patterns`.
-- Any agent that can write while in a declared cold-start/read-only window.
+- Any agent that **surfaces to the operator** (Telegram) while still inside a
+  declared warmup/cold-start window, or that writes outside its declared
+  namespace scope.
 
 **Do not flag:**
+- **observer** durable writes to `observer-observations` / `system-events`
+  during its cold-start warmup window — intentional, decided 2026-06-18.
+  Cold-start withholds operator **surfacing**, not durable writes; the
+  `write_mode_activation_date: 2026-07-02` flag governs only the ORCA
+  mutating-operation capability lock, never observation recording (§4, §5).
 - The role-based ↔ codename naming split (§7) — intentional.
 - Local TF-IDF novelty scoring instead of embeddings — intentional.
 - Heuristic fallback in scoring/classification and in-memory dedup fallback —

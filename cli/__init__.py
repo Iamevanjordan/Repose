@@ -422,7 +422,7 @@ def main():
         # ── Observer: use the real implementation ────────────────────
         if args.command == "observer":
             try:
-                from repose.cli.observer_cli import ObserverCLI as RealObserverCLI
+                from repose.agents.observer_cli import ObserverCLI as RealObserverCLI
                 cli = RealObserverCLI(args=remaining)
             except ImportError:
                 from repose.utils.stub_cli import ObserverCLI as StubObserverCLI

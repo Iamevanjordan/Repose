@@ -8,15 +8,13 @@ Usage:
     tg = repose_config["telegram"]["bot_token_secret_id"]
 """
 
-import os
 import logging
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_CONFIG_PATH = os.environ.get(
-    "REPOSE_CONFIG_PATH",
-    str(Path(__file__).resolve().parent.parent / "config" / "repose_config.yaml"),
+_CONFIG_PATH = str(
+    Path(__file__).resolve().parent.parent / "config" / "repose_config.yaml"
 )
 
 _repose_config: dict = {}
