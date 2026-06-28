@@ -1,16 +1,23 @@
 """
 Observer observer daemon - Repose OS.
 
-Cold-start, READ-ONLY observer entry point. It runs Observer's existing
-read-only monitoring checks on a fixed interval and does nothing else.
+Cold-start observer daemon entry point. It runs Observer's monitoring checks
+on a fixed interval. The daemon only reads and records; it never delivers to
+the operator itself.
 
-Read-only guarantees (cold-start window active through ~2026-07-02):
-  - Only check_* functions are called; each calls _assert_read_only("read").
-  - surface_observation() is NEVER called -> nothing reaches Telegram.
+Cold-start behavior (warmup window active through ~2026-07-02):
+  - Only check_* functions are called; each ORCA *read* is wrapped in
+    _assert_read_only("read"). Observation *recording* is not gated by this:
+    write_observation / log_system_event proceed to durable memory normally
+    throughout cold-start.
+  - This daemon never calls surface_observation() -> it delivers nothing to
+    Telegram itself. Operator-facing surfacing is withheld per-agent until each
+    agent clears its warmup grace window (observer_core.check_quality_drift /
+    config/observer.yaml: per_agent_cold_start_grace).
   - No baseline is persisted, reset, or initialized (baselines are computed
     live and in-memory by observer_core).
-  - observer_core.write_observation / log_system_event are in-memory only;
-    no durable namespace or state-file writes occur.
+  - write_mode_activation_date (config/observer.yaml) governs only the ORCA
+    mutating-operation capability lock; it never gates observation recording.
 
 If _assert_read_only ever trips (AssertionError), the daemon exits non-zero
 loudly rather than silently continuing.
@@ -61,13 +68,14 @@ def main() -> int:
         return 1
 
     # Write-mode transition (mechanism only). Evaluated once at startup, never
-    # polled. Before write_mode_activation_date (config/observer.yaml) this is a
-    # no-op and Observer stays read-only; on/after that date it unlocks write
-    # operations. It does not itself perform writes.
+    # polled. Before write_mode_activation_date (config/observer.yaml) the ORCA
+    # mutating-operation capability stays locked; on/after that date it unlocks
+    # those operations. It does not itself perform writes, and it never gates
+    # observation recording — durable observation writes proceed throughout.
     if w.check_and_apply_write_mode_transition():
-        logger.warning("Observer startup: write mode ACTIVE (cold-start lock lifted)")
+        logger.warning("Observer startup: ORCA write mode ACTIVE (mutating-op lock lifted)")
     else:
-        logger.info("Observer startup: read-only (cold-start lock in effect)")
+        logger.info("Observer startup: ORCA mutating ops locked (cold-start); recording active")
 
     cfg = w.get_config()
     interval = int(
@@ -84,8 +92,8 @@ def main() -> int:
     signal.signal(signal.SIGINT, _handle_signal)
 
     logger.info(
-        "Observer observer starting - READ-ONLY cold-start mode, "
-        "interval=%ss, surfacing=DISABLED",
+        "Observer observer starting - cold-start warmup mode "
+        "(durable writes proceed; daemon does not surface), interval=%ss",
         interval,
     )
     while not stop.is_set():

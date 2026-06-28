@@ -42,9 +42,10 @@ SEVERITY_EMOJI = {"critical": "\u274c", "warning": "\u26a0\ufe0f", "info": "\u21
 # Allowed ORCA read operations
 ALLOWED_OPERATIONS = {"read", "list", "get", "aggregate"}
 
-# Operations unlocked when Observer leaves its cold-start read-only window. Added
-# to ALLOWED_OPERATIONS only by check_and_apply_write_mode_transition() on/after
-# the configured activation date (config/observer.yaml: write_mode_activation_date).
+# ORCA mutating operations, unlocked when Observer's mutating-operation capability
+# lock lifts. Added to ALLOWED_OPERATIONS only by check_and_apply_write_mode_transition()
+# on/after the configured activation date (config/observer.yaml: write_mode_activation_date).
+# This lock never gates observation recording, which proceeds durably throughout cold-start.
 WRITE_MODE_OPERATIONS = {"write", "create", "update", "delete"}
 _write_mode_active = False
 
@@ -127,17 +128,19 @@ def _assert_read_only(operation: str, caller: str = "") -> None:
 
 
 def check_and_apply_write_mode_transition() -> bool:
-    """Lift Observer's cold-start read-only lock on/after the configured date.
+    """Lift Observer's ORCA mutating-operation lock on/after the configured date.
 
     Mechanism only — wired into Observer's startup path, never polled. It reads
     ``write_mode_activation_date`` from config/observer.yaml and, on or after that
     UTC date, adds WRITE_MODE_OPERATIONS to the runtime permission flag
-    (ALLOWED_OPERATIONS) so write paths stop tripping _assert_read_only. It does
-    NOT itself perform any write — it only unlocks the capability.
+    (ALLOWED_OPERATIONS) so ORCA mutating paths stop tripping _assert_read_only. It
+    does NOT itself perform any write — it only unlocks the capability, and it
+    never gates observation recording (write_observation / log_system_event),
+    which proceeds durably throughout cold-start.
 
     Behavior:
-      * Before the activation date: no-op, returns False (still read-only).
-      * On/after the activation date while still read-only: logs a WARNING
+      * Before the activation date: no-op, returns False (lock still in effect).
+      * On/after the activation date while still locked: logs a WARNING
         transition event and unlocks write mode, returns True.
       * Idempotent: once write mode is active (or already unlocked), it is a
         no-op that returns True.
@@ -152,13 +155,13 @@ def check_and_apply_write_mode_transition() -> bool:
     cfg = get_config()
     date_str = cfg.get("write_mode_activation_date")
     if not date_str:
-        # Not configured — remain read-only rather than guess a date.
+        # Not configured — keep the mutating-op lock rather than guess a date.
         return False
     try:
         activation = datetime.strptime(str(date_str), "%Y-%m-%d").date()
     except ValueError:
         logger.error(
-            "Invalid write_mode_activation_date %r; staying read-only.", date_str
+            "Invalid write_mode_activation_date %r; keeping mutating-op lock.", date_str
         )
         return False
 
@@ -167,12 +170,12 @@ def check_and_apply_write_mode_transition() -> bool:
         # Before activation — no-op.
         return False
 
-    # On/after activation and still read-only — perform the transition.
+    # On/after activation and still locked — perform the transition.
     ALLOWED_OPERATIONS.update(WRITE_MODE_OPERATIONS)
     _write_mode_active = True
     logger.warning(
         "Observer WRITE-MODE TRANSITION: activation date %s reached (today=%s); "
-        "cold-start read-only lock lifted, write operations now permitted.",
+        "ORCA mutating-operation lock lifted, write operations now permitted.",
         activation, today,
     )
     log_system_event(
