@@ -1,4 +1,5 @@
 # Repose
+![Repose](assets/repose-hero.png)
 
 Ease, tranquility, and freedom are some of the grounding principles in my life that led me to become the person I am today. Repose is a byproduct of the passion I have for creating solutions that genuinely bring people back to themselves.
 
